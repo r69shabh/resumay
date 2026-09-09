@@ -1,17 +1,25 @@
 {
-  "name": "resume",
+  "name": "resumay",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "node scripts/setup-assets.mjs && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node scripts/setup-assets.mjs || true; prisma skills sync || exit 0"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@neondatabase/auth": "^0.5.0-beta",
+    "@prisma/client": "^6.19.3",
     "next": "16.3.4",
+    "pdfjs-dist": "^6.3.289",
+    "prisma": "^6.19.3",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "unpdf": "^1.8.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

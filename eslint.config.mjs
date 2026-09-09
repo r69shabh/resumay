@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored/downloaded artifacts (not source):
+    "public/pdf.worker.mjs",
+    "bin/**",
+    "scripts/**",
   ]),
 ]);
 

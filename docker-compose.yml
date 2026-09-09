@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: resume
+      POSTGRES_PASSWORD: resume
+      POSTGRES_DB: resume
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resume"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Full self-host: docker compose up --build
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://resume:resume@db:5432/resume
+      NEON_AUTH_BASE_URL: ${NEON_AUTH_BASE_URL:?set the Neon Auth URL}
+      NEON_AUTH_COOKIE_SECRET: ${NEON_AUTH_COOKIE_SECRET:?set a stable cookie secret}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
