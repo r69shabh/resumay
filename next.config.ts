@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     "/api/compile": ["./bin/**/*"],
     "/api/resumes/[id]/text": ["./bin/**/*"],
     "/r/[slug]": ["./bin/**/*"],
+    "/r/[slug]/text": ["./bin/**/*"],
   },
 };
 

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
+import { accessSync, chmodSync, constants, copyFileSync, existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,7 +9,24 @@ import { extractText } from "unpdf";
 function tectonicBin(): string {
   if (process.env.TECTONIC_BIN) return process.env.TECTONIC_BIN;
   const bundled = join(process.cwd(), "bin", "tectonic");
-  if (existsSync(bundled)) return bundled;
+  if (existsSync(bundled)) {
+    try {
+      accessSync(bundled, constants.X_OK);
+      return bundled;
+    } catch {
+      // In read-only serverless filesystems without execute permissions, copy to /tmp and chmod +x
+      const tmpBin = join(tmpdir(), "tectonic");
+      if (!existsSync(tmpBin)) {
+        try {
+          copyFileSync(bundled, tmpBin);
+          chmodSync(tmpBin, 0o755);
+        } catch {
+          return bundled;
+        }
+      }
+      return tmpBin;
+    }
+  }
   return "tectonic";
 }
 
@@ -39,9 +56,18 @@ async function runCompile(source: string): Promise<Buffer> {
     await writeFile(join(dir, "main.tex"), source);
     await new Promise<void>((resolve, reject) => {
       execFile(
+        /*turbopackIgnore: true*/
         tectonicBin(),
         ["-X", "compile", "main.tex", "--outdir", dir, "--keep-logs"],
-        { cwd: dir, timeout: 180_000 },
+        {
+          cwd: dir,
+          timeout: 180_000,
+          env: {
+            ...process.env,
+            XDG_CACHE_HOME: join(tmpdir(), ".cache"),
+            XDG_CONFIG_HOME: join(tmpdir(), ".config"),
+          },
+        },
         (err) => (err ? reject(err) : resolve()),
       );
     });

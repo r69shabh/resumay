@@ -1,7 +1,7 @@
 // Ensures a Tectonic binary exists at bin/tectonic for the current platform.
 // Safe to re-run; never fails hard (falls back to TECTONIC_BIN / PATH with a
 // clear error at compile time).
-import { chmodSync, existsSync, mkdirSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 
@@ -12,15 +12,11 @@ const BIN = join(DIR, "tectonic");
 const ASSETS = {
   "darwin:arm64": `tectonic-${VERSION}-aarch64-apple-darwin.tar.gz`,
   "darwin:x64": `tectonic-${VERSION}-x86_64-apple-darwin.tar.gz`,
-  "linux:x64": `tectonic-${VERSION}-x86_64-unknown-linux-gnu.tar.gz`,
-  "linux:arm64": `tectonic-${VERSION}-aarch64-unknown-linux-gnu.tar.gz`,
+  "linux:x64": `tectonic-${VERSION}-x86_64-unknown-linux-musl.tar.gz`,
+  "linux:arm64": `tectonic-${VERSION}-aarch64-unknown-linux-musl.tar.gz`,
 };
 
 export function fetchTectonic() {
-  if (existsSync(BIN)) {
-    console.log("fetch-tectonic: bin/tectonic already present, skip");
-    return;
-  }
   const key = `${process.platform}:${process.arch}`;
   const asset = ASSETS[key];
   if (!asset) {
@@ -28,6 +24,21 @@ export function fetchTectonic() {
       `fetch-tectonic: no prebuilt binary for ${key} — install tectonic manually and set TECTONIC_BIN`,
     );
     return;
+  }
+
+  if (existsSync(BIN)) {
+    try {
+      execSync(`"${BIN}" -V`, { stdio: "ignore" });
+      console.log(`fetch-tectonic: bin/tectonic already present and runnable for ${key}, skip`);
+      return;
+    } catch {
+      console.log(
+        `fetch-tectonic: existing bin/tectonic cannot run on ${key}, replacing...`,
+      );
+      try {
+        rmSync(BIN, { force: true });
+      } catch {}
+    }
   }
   const URL =
     `https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/` +
@@ -42,7 +53,8 @@ export function fetchTectonic() {
       stdio: "inherit",
     });
     chmodSync(BIN, 0o755);
-    console.log("fetch-tectonic: done");
+    execSync(`"${BIN}" -V`, { stdio: "inherit" });
+    console.log("fetch-tectonic: done and verified");
   } catch (e) {
     console.log(
       `fetch-tectonic: download failed (${e instanceof Error ? e.message : e}) — set TECTONIC_BIN manually`,
