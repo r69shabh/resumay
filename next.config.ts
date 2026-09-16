@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Ship the downloaded Tectonic binary with the compile routes on serverless.
+  // Ship the downloaded Tectonic binary and cache with the compile routes on serverless.
   outputFileTracingIncludes: {
-    "/api/compile": ["./bin/**/*"],
-    "/api/resumes/[id]/text": ["./bin/**/*"],
-    "/r/[slug]": ["./bin/**/*"],
-    "/r/[slug]/text": ["./bin/**/*"],
+    "/api/compile": ["./bin/**/*", "./assets/**/*"],
+    "/api/resumes/[id]/text": ["./bin/**/*", "./assets/**/*"],
+    "/api/resumes/[id]/pdf": ["./bin/**/*", "./assets/**/*"],
+    "/r/[slug]": ["./bin/**/*", "./assets/**/*"],
+    "/r/[slug]/text": ["./bin/**/*", "./assets/**/*"],
   },
 };
 

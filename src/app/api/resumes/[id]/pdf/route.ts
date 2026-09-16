@@ -13,10 +13,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (!resume) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   try {
-    let pdfB64 = await getCachedPdf(resume.slug, resume.updatedAt, resume.latexSource);
+    const pdfB64 = await getCachedPdf(resume.slug, resume.updatedAt, resume.latexSource);
     if (!pdfB64) {
-      const pdf = await compileLatex(resume.latexSource);
-      pdfB64 = pdf.toString("base64");
+      return NextResponse.json({ error: "Compilation failed" }, { status: 500 });
     }
     const buffer = Buffer.from(pdfB64, "base64");
     return new NextResponse(buffer as unknown as BodyInit, {

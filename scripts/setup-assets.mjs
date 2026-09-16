@@ -1,6 +1,7 @@
 // One-time local assets, safe to re-run:
 //  1. Tectonic binary for the current platform -> bin/ (see fetch-tectonic)
 //  2. pdf.js worker -> public/ (served as-is for the canvas previewer)
+//  3. Tectonic cache tarball -> bin/ (for serverless lambda deployment)
 // Never fails hard: missing pieces degrade to clear runtime errors.
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -8,6 +9,20 @@ import { fetchTectonic } from "./fetch-tectonic.mjs";
 
 fetchTectonic();
 
+// 1. Ensure tectonic cache is present in bin/
+const ASSET_CACHE = join(process.cwd(), "assets", "tectonic-cache.tar.gz");
+const BIN_CACHE = join(process.cwd(), "bin", "tectonic-cache.tar.gz");
+try {
+  if (existsSync(ASSET_CACHE) && !existsSync(BIN_CACHE)) {
+    mkdirSync(join(process.cwd(), "bin"), { recursive: true });
+    copyFileSync(ASSET_CACHE, BIN_CACHE);
+    console.log("setup-assets: copied tectonic cache to bin/");
+  }
+} catch (e) {
+  console.log(`setup-assets: cache copy failed: ${e instanceof Error ? e.message : e}`);
+}
+
+// 2. Ensure pdf worker is present in public/
 const SRC = join(process.cwd(), "node_modules", "pdfjs-dist", "build", "pdf.worker.min.mjs");
 const DEST = join(process.cwd(), "public", "pdf.worker.mjs");
 try {

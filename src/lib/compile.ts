@@ -1,5 +1,5 @@
-import { execFile } from "node:child_process";
-import { accessSync, chmodSync, constants, copyFileSync, existsSync } from "node:fs";
+import { execFile, execFileSync } from "node:child_process";
+import { accessSync, chmodSync, constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -30,6 +30,45 @@ function tectonicBin(): string {
   return "tectonic";
 }
 
+let cacheInitialized = false;
+
+function ensureCache(): void {
+  if (cacheInitialized) return;
+
+  const isMac = process.platform === "darwin";
+  const targetDir = isMac
+    ? join(process.env.HOME || tmpdir(), "Library", "Caches", "Tectonic")
+    : join(tmpdir(), ".cache", "Tectonic");
+
+  if (existsSync(targetDir)) {
+    cacheInitialized = true;
+    return;
+  }
+
+  const candidates = [
+    join(process.cwd(), "bin", "tectonic-cache.tar.gz"),
+    join(process.cwd(), "assets", "tectonic-cache.tar.gz"),
+  ];
+  const tarball = candidates.find((p) => existsSync(p));
+
+  if (tarball) {
+    try {
+      const destParent = isMac
+        ? join(process.env.HOME || tmpdir(), "Library", "Caches")
+        : join(tmpdir(), ".cache");
+      mkdirSync(destParent, { recursive: true });
+      execFileSync("tar", ["-xzf", tarball, "-C", destParent], {
+        stdio: "ignore",
+        timeout: 15_000,
+      });
+    } catch (err) {
+      console.warn("ensureCache: failed to unpack cache tarball", err);
+    }
+  }
+
+  cacheInitialized = true;
+}
+
 export class CompileError extends Error {
   log: string;
   constructor(log: string) {
@@ -38,19 +77,42 @@ export class CompileError extends Error {
   }
 }
 
-// Serializes compiles in-process: the live preview and ATS view often fire
-// together, and concurrent tectonic runs contend on the shared bundle cache.
-let compileQueue: Promise<unknown> = Promise.resolve();
+// Concurrency limiter to prevent CPU exhaustion while allowing parallel compiles
+let activeCompiles = 0;
+const MAX_CONCURRENT = 2;
+const waitQueue: Array<() => void> = [];
+
+function acquireCompileSlot(): Promise<void> {
+  if (activeCompiles < MAX_CONCURRENT) {
+    activeCompiles++;
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    waitQueue.push(() => {
+      activeCompiles++;
+      resolve();
+    });
+  });
+}
+
+function releaseCompileSlot(): void {
+  activeCompiles--;
+  const next = waitQueue.shift();
+  if (next) next();
+}
 
 // Compile LaTeX to PDF bytes. Throws CompileError (with TeX log) on failure.
 export async function compileLatex(source: string): Promise<Buffer> {
-  const run = compileQueue.then(() => runCompile(source));
-  // Keep the chain alive even if one compile rejects.
-  compileQueue = run.catch(() => {});
-  return run;
+  await acquireCompileSlot();
+  try {
+    return await runCompile(source);
+  } finally {
+    releaseCompileSlot();
+  }
 }
 
 async function runCompile(source: string): Promise<Buffer> {
+  ensureCache();
   const dir = await mkdtemp(join(tmpdir(), "resume-"));
   try {
     await writeFile(join(dir, "main.tex"), source);
@@ -61,9 +123,10 @@ async function runCompile(source: string): Promise<Buffer> {
         ["-X", "compile", "main.tex", "--outdir", dir, "--keep-logs"],
         {
           cwd: dir,
-          timeout: 180_000,
+          timeout: 45_000,
           env: {
             ...process.env,
+            HOME: tmpdir(),
             XDG_CACHE_HOME: join(tmpdir(), ".cache"),
             XDG_CONFIG_HOME: join(tmpdir(), ".config"),
           },
@@ -77,9 +140,8 @@ async function runCompile(source: string): Promise<Buffer> {
     const log = await readFile(join(dir, "main.log"), "utf8")
       .then((l) => l.slice(-4000))
       .catch(() => "");
-    // No log at all means tectonic never ran (missing binary, not a TeX error).
     throw new CompileError(
-      log || `tectonic failed to run: ${reason} — install it (brew install tectonic) or set TECTONIC_BIN`,
+      log || `Tectonic compilation error: ${reason}`,
     );
   } finally {
     await rm(dir, { recursive: true, force: true });
