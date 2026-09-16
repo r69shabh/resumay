@@ -171,7 +171,7 @@ export default async function Image() {
                     backgroundColor: "#10b981",
                   }}
                 />
-                100% ATS SAFE · TECTONIC LATEX
+                100% ATS SAFE · FREE FOREVER
               </div>
             </div>
 
@@ -186,7 +186,7 @@ export default async function Image() {
                   lineHeight: 1.1,
                 }}
               >
-                Real LaTeX Resumes.
+                Clean, ATS-Safe Resumes.
               </span>
               <span
                 style={{
@@ -197,18 +197,18 @@ export default async function Image() {
                   lineHeight: 1.1,
                 }}
               >
-                Zero LaTeX Required.
+                Zero Formatting Headaches.
               </span>
               <p
                 style={{
                   fontSize: "19px",
-                  color: "#71717a",
+                  color: "#a1a1aa",
                   lineHeight: 1.45,
                   margin: "8px 0 0 0",
                   maxWidth: "560px",
                 }}
               >
-                Disciplined single-column LaTeX typesetting compiled server-side with Tectonic. Form-first editor, real-time PDF preview, and instant share links.
+                Create clean, ATS-friendly resumes in minutes. No complex formatting — just enter your details, preview live, and download for free.
               </p>
             </div>
 

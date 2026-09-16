@@ -1,4 +1,4 @@
-# resumay — Real LaTeX Resumes. Zero LaTeX Required.
+# resumay — Free, ATS-Friendly Resume Builder
 
 <p align="left">
   <a href="https://makeresumay.vercel.app" target="_blank"><img src="https://img.shields.io/badge/Live%20App-makeresumay.vercel.app-10b981?style=flat-square" alt="Live Demo" /></a>
@@ -11,7 +11,7 @@
 > *"Resume creation is an art of seeking job."*  
 > — **r69shabh, 2026**
 
-**resumay** is an ATS-safe resume builder that compiles genuine LaTeX resumes in real-time without requiring users to write a single line of LaTeX syntax. Built for software engineers, finance analysts, consultants, and students who want disciplined, single-column typesetting that glides through Applicant Tracking Systems (ATS) while looking razor-sharp to human recruiters.
+**resumay** is a free, simple resume builder designed to help you create clean, professional resumes that easily pass ATS filters in minutes. No formatting headaches or technical skills required — just fill in your details, preview live, and download a polished PDF ready for job applications.
 
 ---
 

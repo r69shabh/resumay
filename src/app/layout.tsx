@@ -20,24 +20,21 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://makeresumay.vercel.ap
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    default: "resumay — Free ATS-Safe LaTeX Resume Builder",
+    default: "resumay — Free ATS-Safe Resume Builder",
     template: "%s | resumay",
   },
   description:
-    "Build disciplined, single-column LaTeX resumes in minutes without writing TeX code. Form-first editor, real-time Tectonic PDF preview, ATS text validation, and instant share links.",
+    "Create clean, ATS-friendly resumes in minutes. No formatting headaches — enter your details, preview live, and download for free.",
   applicationName: "resumay",
   keywords: [
     "resume builder",
-    "latex resume builder",
+    "free resume builder",
     "ats resume",
     "ats friendly resume",
-    "tectonic latex",
-    "software engineer resume",
-    "tech resume",
-    "investment banking resume",
-    "management consulting resume",
-    "free resume builder",
-    "single column resume",
+    "simple resume builder",
+    "clean resume templates",
+    "professional resume builder",
+    "job search resume",
   ],
   authors: [{ name: "r69shabh", url: "https://x.com/r69shabh" }],
   creator: "r69shabh",
@@ -57,16 +54,16 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: appUrl,
-    title: "resumay — Free ATS-Safe LaTeX Resume Builder",
+    title: "resumay — Free ATS-Safe Resume Builder",
     description:
-      "Build disciplined, single-column LaTeX resumes in minutes without writing TeX code. Form-first editor, real-time Tectonic PDF preview, ATS text validation, and instant share links.",
+      "Create clean, ATS-friendly resumes in minutes. No formatting headaches — enter your details, preview live, and download for free.",
     siteName: "resumay",
   },
   twitter: {
     card: "summary_large_image",
-    title: "resumay — Free ATS-Safe LaTeX Resume Builder",
+    title: "resumay — Free ATS-Safe Resume Builder",
     description:
-      "Build disciplined, single-column LaTeX resumes in minutes without writing TeX code. Form-first editor, real-time Tectonic PDF preview, ATS text validation, and instant share links.",
+      "Create clean, ATS-friendly resumes in minutes. No formatting headaches — enter your details, preview live, and download for free.",
     creator: "@r69shabh",
     site: "@r69shabh",
   },
@@ -89,7 +86,7 @@ const jsonLd = {
   name: "resumay",
   url: appUrl,
   description:
-    "Free ATS-Safe LaTeX Resume Builder. Disciplined single-column typesetting compiled server-side with Tectonic without writing TeX code.",
+    "Free ATS-friendly resume builder. Create clean, professional resumes in minutes with live preview and instant download.",
   applicationCategory: "BusinessApplication",
   operatingSystem: "All",
   offers: {
