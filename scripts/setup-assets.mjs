@@ -3,20 +3,20 @@
 //  2. pdf.js worker -> public/ (served as-is for the canvas previewer)
 //  3. Tectonic cache tarball -> bin/ (for serverless lambda deployment)
 // Never fails hard: missing pieces degrade to clear runtime errors.
-import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { fetchTectonic } from "./fetch-tectonic.mjs";
 
 fetchTectonic();
 
-// 1. Ensure tectonic cache is present in bin/
-const ASSET_CACHE = join(process.cwd(), "assets", "tectonic-cache.tar.gz");
-const BIN_CACHE = join(process.cwd(), "bin", "tectonic-cache.tar.gz");
+// 1. Ensure tectonic cache is present in bin/cache/
+const ASSET_CACHE = join(process.cwd(), "assets", "cache", "Tectonic");
+const BIN_CACHE = join(process.cwd(), "bin", "cache", "Tectonic");
 try {
   if (existsSync(ASSET_CACHE) && !existsSync(BIN_CACHE)) {
-    mkdirSync(join(process.cwd(), "bin"), { recursive: true });
-    copyFileSync(ASSET_CACHE, BIN_CACHE);
-    console.log("setup-assets: copied tectonic cache to bin/");
+    mkdirSync(join(process.cwd(), "bin", "cache"), { recursive: true });
+    cpSync(ASSET_CACHE, BIN_CACHE, { recursive: true });
+    console.log("setup-assets: copied tectonic cache to bin/cache/Tectonic");
   }
 } catch (e) {
   console.log(`setup-assets: cache copy failed: ${e instanceof Error ? e.message : e}`);

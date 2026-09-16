@@ -1,5 +1,5 @@
-import { execFile, execFileSync } from "node:child_process";
-import { accessSync, chmodSync, constants, copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { accessSync, chmodSync, constants, copyFileSync, cpSync, existsSync, mkdirSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -45,24 +45,22 @@ function ensureCache(): void {
     return;
   }
 
+  // Pure Node.js directory copy — works in minimal Lambda containers without tar
   const candidates = [
-    join(process.cwd(), "bin", "tectonic-cache.tar.gz"),
-    join(process.cwd(), "assets", "tectonic-cache.tar.gz"),
+    join(process.cwd(), "assets", "cache", "Tectonic"),
+    join(process.cwd(), "bin", "cache", "Tectonic"),
   ];
-  const tarball = candidates.find((p) => existsSync(p));
+  const sourceCache = candidates.find((p) => existsSync(p));
 
-  if (tarball) {
+  if (sourceCache) {
     try {
       const destParent = isMac
         ? join(process.env.HOME || tmpdir(), "Library", "Caches")
         : join(tmpdir(), ".cache");
       mkdirSync(destParent, { recursive: true });
-      execFileSync("tar", ["-xzf", tarball, "-C", destParent], {
-        stdio: "ignore",
-        timeout: 15_000,
-      });
+      cpSync(sourceCache, targetDir, { recursive: true });
     } catch (err) {
-      console.warn("ensureCache: failed to unpack cache tarball", err);
+      console.warn("ensureCache: failed to copy cache directory", err);
     }
   }
 
@@ -126,9 +124,13 @@ async function runCompile(source: string): Promise<Buffer> {
           timeout: 45_000,
           env: {
             ...process.env,
-            HOME: tmpdir(),
-            XDG_CACHE_HOME: join(tmpdir(), ".cache"),
-            XDG_CONFIG_HOME: join(tmpdir(), ".config"),
+            ...(process.platform === "darwin"
+              ? {}
+              : {
+                  HOME: tmpdir(),
+                  XDG_CACHE_HOME: join(tmpdir(), ".cache"),
+                  XDG_CONFIG_HOME: join(tmpdir(), ".config"),
+                }),
           },
         },
         (err) => (err ? reject(err) : resolve()),

@@ -231,7 +231,7 @@ export function escapeUrl(u: string): string {
 const lines = (s: string) =>
   s
     .split("\n")
-    .map((l) => l.trim().replace(/^[-•*]\s+/, ""))
+    .map((l) => l.trim().replace(/^[-•*]\s*/, "").trim())
     .filter(Boolean);
 
 const nonEmpty = (o: object) => Object.values(o).some((v) => String(v ?? "").trim() !== "");
@@ -372,10 +372,13 @@ export function renderLatex(c: ResumeContent): string {
   const experience = exp.length
     ? `\\resumeSubHeadingListStart\n${exp
         .map((e) => {
-          const items = lines(e.bullets)
-            .map((b) => `      \\resumeItem{${escapeLatex(b)}}`)
-            .join("\n");
-          return `  \\resumeSubheading\n    {${escapeLatex(e.title)}}{${escapeLatex(e.start)}${e.start && e.end ? " -- " : ""}${escapeLatex(e.end)}}\n    {${escapeLatex(e.company)}}{${escapeLatex(e.location)}}\n    \\resumeItemListStart\n${items}\n    \\resumeItemListEnd`;
+          const bulletLines = lines(e.bullets);
+          const itemList = bulletLines.length
+            ? `\n    \\resumeItemListStart\n${bulletLines
+                .map((b) => `      \\resumeItem{${escapeLatex(b)}}`)
+                .join("\n")}\n    \\resumeItemListEnd`
+            : "";
+          return `  \\resumeSubheading\n    {${escapeLatex(e.title)}}{${escapeLatex(e.start)}${e.start && e.end ? " -- " : ""}${escapeLatex(e.end)}}\n    {${escapeLatex(e.company)}}{${escapeLatex(e.location)}}${itemList}`;
         })
         .join("\n")}\n\\resumeSubHeadingListEnd`
     : "";
@@ -383,12 +386,15 @@ export function renderLatex(c: ResumeContent): string {
   const projects = proj.length
     ? `\\resumeSubHeadingListStart\n${proj
         .map((p) => {
-          const items = lines(p.bullets)
-            .map((b) => `      \\resumeItem{${escapeLatex(b)}}`)
-            .join("\n");
+          const bulletLines = lines(p.bullets);
           const link = p.url.trim() ? ` $|$ \\href{${escapeUrl(p.url)}}{Link}` : "";
           const tech = p.tech.trim() ? ` $|$ \\emph{${escapeLatex(p.tech)}}` : "";
-          return `  \\resumeSubheading\n    {${escapeLatex(p.name)}${tech}${link}}{${escapeLatex(p.date)}}\n    {}{}\n    \\resumeItemListStart\n${items}\n    \\resumeItemListEnd`;
+          const itemList = bulletLines.length
+            ? `\n    \\resumeItemListStart\n${bulletLines
+                .map((b) => `      \\resumeItem{${escapeLatex(b)}}`)
+                .join("\n")}\n    \\resumeItemListEnd`
+            : "";
+          return `  \\resumeSubheading\n    {${escapeLatex(p.name)}${tech}${link}}{${escapeLatex(p.date)}}\n    {}{}${itemList}`;
         })
         .join("\n")}\n\\resumeSubHeadingListEnd`
     : "";
@@ -478,7 +484,8 @@ export function renderLatex(c: ResumeContent): string {
 
   const fontPkg =
     config.fontFamily === "sans"
-      ? `\\usepackage[scaled=0.92]{helvet}
+      ? `\\usepackage[T1]{fontenc}
+\\usepackage[scaled=0.92]{helvet}
 \\renewcommand{\\familydefault}{\\sfdefault}`
       : "";
 

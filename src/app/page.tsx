@@ -34,6 +34,7 @@ import {
   Check,
   Sparkles,
   Layout,
+  MessageSquare,
 } from "lucide-react";
 import {
   RESUME_TEMPLATES,
@@ -41,6 +42,7 @@ import {
   type TemplateCategory,
 } from "@/lib/templates-data";
 import { SuggestionBox } from "@/components/SuggestionBox";
+import { SuggestionsModal } from "@/components/SuggestionsModal";
 import { ResumayLogo } from "@/components/ResumayLogo";
 import { LoginScreen } from "@/components/LoginScreen";
 
@@ -328,6 +330,7 @@ function HomeInner() {
   const [shareModalResume, setShareModalResume] = useState<Resume | null>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateCategory, setTemplateCategory] = useState<TemplateCategory>("all");
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const load = async () => {
@@ -474,8 +477,19 @@ function HomeInner() {
           )}
         </div>
 
-        {/* Right Corner: Dark/Light Mode Switch + Profile Icon */}
+        {/* Right Corner: Suggestions + Dark/Light Mode Switch + Profile Icon */}
         <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSuggestionsOpen(true)}
+            className="h-9 gap-1.5 text-xs rounded-full px-3 text-muted-foreground hover:text-foreground"
+            title="View user suggestions"
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Suggestions</span>
+          </Button>
+
           <ThemeToggle />
 
           <div className="relative">
@@ -515,8 +529,19 @@ function HomeInner() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => void signOut()}
+                    onClick={() => {
+                      setProfileOpen(false);
+                      setSuggestionsOpen(true);
+                    }}
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>View suggestions</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void signOut()}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-t mt-1 pt-1.5"
                   >
                     <LogOut className="h-3.5 w-3.5" />
                     <span>Sign out</span>
@@ -1009,6 +1034,12 @@ function HomeInner() {
           </div>
         </div>
       )}
+
+      {/* Suggestions viewer modal */}
+      <SuggestionsModal
+        isOpen={suggestionsOpen}
+        onClose={() => setSuggestionsOpen(false)}
+      />
     </div>
   );
 }

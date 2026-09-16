@@ -23,3 +23,11 @@ model Resume {
 
   @@index([userId])
 }
+
+model Suggestion {
+  id        String   @id @default(cuid())
+  type      String   @default("other")
+  message   String
+  contact   String   @default("")
+  createdAt DateTime @default(now())
+}

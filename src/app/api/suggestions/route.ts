@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
 
 const ALLOWED_TYPES = new Set(["feature", "template", "bug", "other"]);
 
@@ -21,14 +22,30 @@ export async function POST(req: NextRequest) {
     const contact =
       typeof body.contact === "string" ? body.contact.trim().slice(0, 250) : "";
 
-    console.log("[SUGGESTION_RECEIVED]", {
-      type,
-      message,
-      contact,
-      time: new Date().toISOString(),
+    const item = await db.suggestion.create({
+      data: {
+        type,
+        message,
+        contact,
+      },
     });
-    return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
+
+    console.log("[SUGGESTION_RECEIVED]", item);
+    return NextResponse.json({ ok: true, id: item.id });
+  } catch (e) {
+    console.error("Failed to save suggestion:", e);
+    return NextResponse.json({ ok: false, error: "Failed to save suggestion" }, { status: 500 });
+  }
+}
+
+export async function GET() {
+  try {
+    const suggestions = await db.suggestion.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json({ ok: true, suggestions });
+  } catch (e) {
+    console.error("Failed to fetch suggestions:", e);
+    return NextResponse.json({ ok: false, error: "Failed to fetch suggestions" }, { status: 500 });
   }
 }
