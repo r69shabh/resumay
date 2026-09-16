@@ -2,10 +2,8 @@
 
 import { useSyncExternalStore } from "react";
 import { KeyRound } from "lucide-react";
-import { Card } from "./ui";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
-// Mirrors the server-side gate in layout.tsx (which sets
-// data-auth-configured on <body>). Null during server render.
 export function useAuthConfigured(): boolean | null {
   return useSyncExternalStore(
     () => () => {},
@@ -16,17 +14,22 @@ export function useAuthConfigured(): boolean | null {
 
 export default function NeedKeys() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-md items-center justify-center px-6">
-      <Card className="p-6 text-center shadow-lg">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
-          <KeyRound className="h-5 w-5" />
-        </div>
-        <h3 className="mt-3 text-sm font-bold text-foreground">Neon Auth Setup Required</h3>
-        <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-          Set <code className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-foreground">NEON_AUTH_BASE_URL</code> and{" "}
-          <code className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-foreground">NEON_AUTH_COOKIE_SECRET</code> in your{" "}
-          <code className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-foreground">.env</code> file from the Neon console, then restart the server.
-        </p>
+    <main className="flex min-h-screen items-center justify-center p-6">
+      <Card className="w-full max-w-sm text-center">
+        <CardHeader>
+          <KeyRound className="mx-auto h-8 w-8 text-muted-foreground" />
+          <CardTitle className="text-base">Neon Auth Setup Required</CardTitle>
+          <CardDescription className="text-xs">
+            Set{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">NEON_AUTH_BASE_URL</code>{" "}
+            and{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">NEON_AUTH_COOKIE_SECRET</code>{" "}
+            in your{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">.env</code>{" "}
+            file, then restart the server.
+          </CardDescription>
+        </CardHeader>
+        <CardContent />
       </Card>
     </main>
   );

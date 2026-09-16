@@ -97,16 +97,16 @@ export default function LatexPreview({
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
       {failed ? (
-        <div className="w-full max-w-lg rounded-2xl border border-red-200 bg-red-50/60 p-6 shadow-sm dark:border-red-900/40 dark:bg-red-950/20">
-          <AlertCircle className="mx-auto h-7 w-7 text-red-500" />
-          <h4 className="mt-2 text-sm font-semibold text-red-700 dark:text-red-300">
+        <div className="w-full max-w-lg rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-center text-destructive">
+          <AlertCircle className="mx-auto h-7 w-7" />
+          <h4 className="mt-2 text-sm font-semibold">
             Compilation Failed
           </h4>
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+          <p className="mt-1 text-xs opacity-80">
             Tectonic encountered syntax errors in the LaTeX source.
           </p>
           {log && (
-            <pre className="mt-3 max-h-72 w-full overflow-auto rounded-xl bg-zinc-950 p-3.5 text-left font-mono text-[11px] leading-relaxed text-red-300">
+            <pre className="mt-3 max-h-72 w-full overflow-auto rounded-md bg-muted p-3.5 text-left font-mono text-[11px] leading-relaxed text-foreground">
               {log}
             </pre>
           )}

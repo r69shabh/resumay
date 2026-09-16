@@ -17,9 +17,20 @@ export async function generateMetadata({
   const { slug } = await params;
   const resume = await db.resume.findUnique({ where: { slug } });
   if (!resume) return { title: "Not found — resumay" };
+  const desc = `Resume: ${resume.title}${resume.roleTag ? ` (${resume.roleTag})` : ""}. Typeset with real LaTeX — view, download PDF, or fetch clean ATS text.`;
   return {
     title: `${resume.title} — resumay`,
-    description: `Resume: ${resume.title}${resume.roleTag ? ` (${resume.roleTag})` : ""}. View, download, or fetch as plain text.`,
+    description: desc,
+    openGraph: {
+      title: `${resume.title} — resumay`,
+      description: desc,
+      type: "profile",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${resume.title} — resumay`,
+      description: desc,
+    },
   };
 }
 

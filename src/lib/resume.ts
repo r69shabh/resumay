@@ -30,7 +30,26 @@ export type CertificateEntry = { name: string; issuer: string; date: string };
 export type SkillGroup = { label: string; items: string };
 export type ExtraEntry = { title: string; detail: string };
 
+export type ResumeSectionId =
+  | "summary"
+  | "experience"
+  | "projects"
+  | "skills"
+  | "education"
+  | "certificates"
+  | "extra";
+
+export type TemplateConfig = {
+  templateId?: string;
+  fontFamily?: "serif" | "sans";
+  headerLayout?: "center" | "left" | "split";
+  headerSubtitle?: string;
+  sectionOrder?: ResumeSectionId[];
+};
+
 export type ResumeContent = {
+  template?: string;
+  templateConfig?: TemplateConfig;
   name: string;
   phone: string;
   email: string;
@@ -45,8 +64,108 @@ export type ResumeContent = {
   extra: ExtraEntry[];
 };
 
+export const DEFAULT_TEMPLATE_CONFIGS: Record<
+  string,
+  {
+    templateId: string;
+    fontFamily: "serif" | "sans";
+    headerLayout: "center" | "left" | "split";
+    sectionOrder: ResumeSectionId[];
+    headerSubtitle: string;
+  }
+> = {
+  swe: {
+    templateId: "swe",
+    fontFamily: "serif",
+    headerLayout: "center",
+    sectionOrder: ["experience", "projects", "skills", "education", "certificates", "extra"],
+    headerSubtitle: "",
+  },
+  fullstack: {
+    templateId: "fullstack",
+    fontFamily: "sans",
+    headerLayout: "left",
+    sectionOrder: ["summary", "experience", "projects", "skills", "education", "certificates", "extra"],
+    headerSubtitle: "Full-Stack Software Engineer",
+  },
+  aiml: {
+    templateId: "aiml",
+    fontFamily: "sans",
+    headerLayout: "left",
+    sectionOrder: ["summary", "skills", "experience", "projects", "education", "extra", "certificates"],
+    headerSubtitle: "AI & Machine Learning Specialist",
+  },
+  pm: {
+    templateId: "pm",
+    fontFamily: "sans",
+    headerLayout: "left",
+    sectionOrder: ["summary", "skills", "experience", "projects", "education", "certificates", "extra"],
+    headerSubtitle: "Senior Technical Product Manager",
+  },
+  finance: {
+    templateId: "finance",
+    fontFamily: "serif",
+    headerLayout: "center",
+    sectionOrder: ["education", "experience", "skills", "certificates", "extra", "projects"],
+    headerSubtitle: "",
+  },
+  consulting: {
+    templateId: "consulting",
+    fontFamily: "sans",
+    headerLayout: "left",
+    sectionOrder: ["summary", "experience", "education", "skills", "certificates", "extra"],
+    headerSubtitle: "Management Consultant | Strategy & Operations",
+  },
+  newgrad: {
+    templateId: "newgrad",
+    fontFamily: "serif",
+    headerLayout: "center",
+    sectionOrder: ["education", "projects", "experience", "skills", "extra", "certificates"],
+    headerSubtitle: "",
+  },
+  compact: {
+    templateId: "compact",
+    fontFamily: "sans",
+    headerLayout: "split",
+    sectionOrder: ["skills", "experience", "projects", "education", "certificates", "extra"],
+    headerSubtitle: "Software Engineer",
+  },
+  blank: {
+    templateId: "blank",
+    fontFamily: "serif",
+    headerLayout: "center",
+    sectionOrder: ["education", "experience", "projects", "skills", "certificates", "extra"],
+    headerSubtitle: "",
+  },
+};
+
+export function getResolvedTemplateConfig(c: ResumeContent): {
+  templateId: string;
+  fontFamily: "serif" | "sans";
+  headerLayout: "center" | "left" | "split";
+  sectionOrder: ResumeSectionId[];
+  headerSubtitle: string;
+} {
+  const tid = c.template || c.templateConfig?.templateId || "swe";
+  const def = DEFAULT_TEMPLATE_CONFIGS[tid] || DEFAULT_TEMPLATE_CONFIGS.swe;
+  return {
+    templateId: tid,
+    fontFamily: c.templateConfig?.fontFamily || def.fontFamily,
+    headerLayout: c.templateConfig?.headerLayout || def.headerLayout,
+    headerSubtitle:
+      c.templateConfig?.headerSubtitle !== undefined
+        ? c.templateConfig.headerSubtitle
+        : def.headerSubtitle,
+    sectionOrder:
+      c.templateConfig?.sectionOrder && c.templateConfig.sectionOrder.length
+        ? c.templateConfig.sectionOrder
+        : def.sectionOrder,
+  };
+}
+
 export function defaultContent(): ResumeContent {
   return {
+    template: "swe",
     name: "",
     phone: "",
     email: "",
@@ -70,6 +189,9 @@ export function parseContent(json: unknown): ResumeContent {
   return {
     ...d,
     ...j,
+    template: typeof j.template === "string" ? j.template : d.template,
+    templateConfig:
+      j.templateConfig && typeof j.templateConfig === "object" ? j.templateConfig : d.templateConfig,
     links: Array.isArray(j.links) ? j.links : d.links,
     education: Array.isArray(j.education) && j.education.length ? j.education : d.education,
     experience: Array.isArray(j.experience) && j.experience.length ? j.experience : d.experience,
@@ -114,7 +236,67 @@ const lines = (s: string) =>
 
 const nonEmpty = (o: object) => Object.values(o).some((v) => String(v ?? "").trim() !== "");
 
+const TITLE_OVERRIDES: Record<string, Partial<Record<ResumeSectionId, string>>> = {
+  swe: {
+    experience: "Experience",
+    projects: "Projects",
+    skills: "Technical Skills",
+    education: "Education",
+  },
+  fullstack: {
+    summary: "Professional Summary",
+    experience: "Work Experience",
+    projects: "Key Projects",
+    skills: "Technical Skills",
+    education: "Education",
+  },
+  aiml: {
+    summary: "Professional Summary",
+    skills: "Core Technical Skills and Tooling",
+    experience: "Work and Research Experience",
+    projects: "Key Systems and Projects",
+    education: "Education",
+    extra: "Publications and Competitions",
+  },
+  pm: {
+    summary: "Executive Summary",
+    skills: "Core Competencies and Leadership",
+    experience: "Professional Experience",
+    projects: "Strategic Initiatives",
+    certificates: "Certifications",
+    education: "Education",
+  },
+  finance: {
+    education: "Education",
+    experience: "Investment Banking Experience",
+    skills: "Financial and Analytical Skills",
+    certificates: "Licenses and Certifications",
+    extra: "Leadership and Honors",
+  },
+  consulting: {
+    summary: "Executive Summary",
+    experience: "Management Consulting Experience",
+    education: "Education",
+    skills: "Core Competencies and Tools",
+    extra: "Honors and Extracurricular Leadership",
+  },
+  newgrad: {
+    education: "Education and Academic Honors",
+    projects: "Technical Projects and Hackathons",
+    experience: "Work and Internship Experience",
+    skills: "Skills and Relevant Coursework",
+    extra: "Leadership and Activities",
+  },
+  compact: {
+    skills: "Technical Skills",
+    experience: "Experience",
+    projects: "Projects",
+    education: "Education",
+  },
+};
+
 export function renderLatex(c: ResumeContent): string {
+  const config = getResolvedTemplateConfig(c);
   const contact: string[] = [];
   if (c.phone.trim()) contact.push(escapeLatex(c.phone.trim()));
   if (c.email.trim())
@@ -126,6 +308,45 @@ export function renderLatex(c: ResumeContent): string {
     contact.push(`\\href{${escapeUrl(l.url)}}{${label}}`);
   }
 
+  const nameStr = escapeLatex(c.name.trim() || "Your Name");
+  const subStr = config.headerSubtitle ? escapeLatex(config.headerSubtitle) : "";
+
+  // Dynamic Header layout
+  let heading = "";
+  if (config.headerLayout === "left") {
+    heading = `\\begin{flushleft}
+  {\\Huge\\bfseries ${nameStr}}${subStr ? ` \\\\ \\vspace{1pt}{\\small\\textit{${subStr}}}` : ""} \\\\ \\vspace{2pt}
+  \\small ${contact.join(" $|$ ")}
+\\end{flushleft}
+\\vspace{-4pt}
+`;
+  } else if (config.headerLayout === "split") {
+    const half = Math.ceil(contact.length / 2);
+    const row1 = contact.slice(0, half).join(" $|$ ");
+    const row2 = contact.slice(half).join(" $|$ ");
+    heading = `\\noindent
+\\begin{tabular*}{\\textwidth}{l@{\\extracolsep{\\fill}}r}
+  \\begin{tabular}[b]{@{}l@{}}
+    {\\Huge\\bfseries ${nameStr}} \\\\
+    ${subStr ? `\\textit{\\small ${subStr}} \\\\` : ""}
+  \\end{tabular}
+  &
+  \\begin{tabular}[b]{@{}r@{}}
+    ${row1 ? `${row1} \\\\` : ""}
+    ${row2}
+  \\end{tabular}
+\\end{tabular*}
+\\vspace{-2pt}
+`;
+  } else {
+    // Default: centered classic Jake's style
+    heading = `\\begin{center}
+  \\textbf{\\Huge \\scshape ${nameStr}} \\\\ \\vspace{1pt}
+  \\small ${contact.join(" $|$ ")}
+\\end{center}
+`;
+  }
+
   const edu = c.education.filter(nonEmpty);
   const exp = c.experience.filter(nonEmpty);
   const proj = c.projects.filter(nonEmpty);
@@ -134,18 +355,13 @@ export function renderLatex(c: ResumeContent): string {
   const extra = c.extra.filter(nonEmpty);
 
   const section = (title: string, body: string) =>
-    body ? `%---------- ${title.toUpperCase()} ----------\n\\section{${title}}\n${body}\n` : "";
+    body ? `%---------- ${title.toUpperCase()} ----------\n\\section{${escapeLatex(title)}}\n${body}\n` : "";
 
-  const heading = `\\begin{center}\n  \\textbf{\\Huge \\scshape ${escapeLatex(c.name.trim() || "Your Name")}} \\\\ \\vspace{1pt}\n  \\small ${contact.join(" $|$ ")}\n\\end{center}\n`;
-
-  const summary = c.summary.trim()
-    ? `\\section{Professional Summary}\n${escapeLatex(c.summary.trim())}\n`
-    : "";
+  const summary = c.summary.trim() ? `${escapeLatex(c.summary.trim())}\n` : "";
 
   const education = edu.length
     ? `\\resumeSubHeadingListStart\n${edu
         .map((e) => {
-          // ponytail: grade stays inline — `\\` would break the tabular row
           const degree = e.degree.trim() + (e.grade.trim() ? ` (Grade: ${e.grade.trim()})` : "");
           const dates = `${e.start.trim()}${e.start.trim() && e.end.trim() ? " -- " : ""}${e.end.trim()}`;
           return `  \\resumeSubheading\n    {${escapeLatex(e.school)}}{${escapeLatex(e.location)}}\n    {${escapeLatex(degree)}}{${escapeLatex(dates)}}`;
@@ -200,8 +416,74 @@ export function renderLatex(c: ResumeContent): string {
     ),
   );
 
+  const sectionBodies: Record<ResumeSectionId, { defaultTitle: string; body: string }> = {
+    summary: { defaultTitle: "Professional Summary", body: summary },
+    education: { defaultTitle: "Education", body: education },
+    experience: { defaultTitle: "Experience", body: experience },
+    projects: { defaultTitle: "Projects", body: projects },
+    skills: { defaultTitle: "Technical Skills", body: skillBlock },
+    certificates: { defaultTitle: "Certificates", body: certificates },
+    extra: { defaultTitle: "Extra Curricular", body: extraBlock },
+  };
+
+  const renderedSections: string[] = [];
+  const handled = new Set<string>();
+
+  for (const secId of config.sectionOrder) {
+    handled.add(secId);
+    const item = sectionBodies[secId];
+    if (!item || !item.body.trim()) continue;
+    const title = TITLE_OVERRIDES[config.templateId]?.[secId] || item.defaultTitle;
+    renderedSections.push(section(title, item.body));
+  }
+
+  // Any remaining populated sections not in custom order
+  for (const [secId, item] of Object.entries(sectionBodies) as [
+    ResumeSectionId,
+    { defaultTitle: string; body: string },
+  ][]) {
+    if (!handled.has(secId) && item.body.trim()) {
+      const title = TITLE_OVERRIDES[config.templateId]?.[secId] || item.defaultTitle;
+      renderedSections.push(section(title, item.body));
+    }
+  }
+
+  const marginSetup =
+    config.templateId === "compact"
+      ? `\\addtolength{\\oddsidemargin}{-0.6in}
+\\addtolength{\\evensidemargin}{-0.6in}
+\\addtolength{\\textwidth}{1.2in}
+\\addtolength{\\topmargin}{-.6in}
+\\addtolength{\\textheight}{1.2in}`
+      : config.fontFamily === "sans"
+      ? `\\addtolength{\\oddsidemargin}{-0.45in}
+\\addtolength{\\evensidemargin}{-0.45in}
+\\addtolength{\\textwidth}{0.9in}
+\\addtolength{\\topmargin}{-.45in}
+\\addtolength{\\textheight}{0.9in}`
+      : `\\addtolength{\\oddsidemargin}{-0.5in}
+\\addtolength{\\evensidemargin}{-0.5in}
+\\addtolength{\\textwidth}{1in}
+\\addtolength{\\topmargin}{-.5in}
+\\addtolength{\\textheight}{1.0in}`;
+
+  const titleFormat =
+    config.fontFamily === "sans"
+      ? `\\titleformat{\\section}{
+  \\vspace{-4pt}\\bfseries\\raggedright\\large
+}{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]`
+      : `\\titleformat{\\section}{
+  \\vspace{-4pt}\\scshape\\raggedright\\large
+}{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]`;
+
+  const fontPkg =
+    config.fontFamily === "sans"
+      ? `\\usepackage[scaled=0.92]{helvet}
+\\renewcommand{\\familydefault}{\\sfdefault}`
+      : "";
+
   return `%------------------------ Resume ------------------------
-% Generated from structured data. Edit via the form; raw edits live in the LaTeX tab.
+% Template: ${config.templateId} | Layout: ${config.headerLayout} | Font: ${config.fontFamily}
 \\documentclass[letterpaper,11pt]{article}
 
 \\usepackage[empty]{fullpage}
@@ -211,24 +493,19 @@ export function renderLatex(c: ResumeContent): string {
 \\usepackage{enumitem}
 \\usepackage{tabularx}
 \\usepackage[usenames,dvipsnames]{color}
+${fontPkg}
 
 \\pagestyle{fancy}
 \\fancyhf{}
 \\renewcommand{\\headrulewidth}{0pt}
 \\renewcommand{\\footrulewidth}{0pt}
-\\addtolength{\\oddsidemargin}{-0.5in}
-\\addtolength{\\evensidemargin}{-0.5in}
-\\addtolength{\\textwidth}{1in}
-\\addtolength{\\topmargin}{-.5in}
-\\addtolength{\\textheight}{1.0in}
+${marginSetup}
 \\urlstyle{same}
 \\raggedbottom
 \\raggedright
 \\setlength{\\tabcolsep}{0in}
 
-\\titleformat{\\section}{
-  \\vspace{-4pt}\\scshape\\raggedright\\large
-}{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]
+${titleFormat}
 
 \\newcommand{\\resumeItem}[1]{\\item\\small{{#1 \\vspace{-2pt}}}}
 \\newcommand{\\resumeSubheading}[4]{
@@ -246,13 +523,7 @@ export function renderLatex(c: ResumeContent): string {
 \\begin{document}
 
 ${heading}
-${summary}
-${section("Education", education)}
-${section("Experience", experience)}
-${section("Projects", projects)}
-${section("Technical Skills", skillBlock)}
-${section("Certificates", certificates)}
-${section("Extra Curricular", extraBlock)}
+${renderedSections.join("\n")}
 \\end{document}
 `;
 }
@@ -260,71 +531,107 @@ ${section("Extra Curricular", extraBlock)}
 // Plain-text rendering for ATS consumption: linear, labeled, no markup.
 // Used by the public share text view and /r/[slug]/text.
 export function renderPlainText(c: ResumeContent): string {
+  const config = getResolvedTemplateConfig(c);
   const out: string[] = [];
   if (c.name.trim()) out.push(c.name.trim());
+  if (config.headerSubtitle) out.push(config.headerSubtitle);
   const contact = [
     c.phone.trim(),
     c.email.trim(),
     c.location.trim(),
-    ...c.links.filter((l) => l.url.trim()).map((l) => (l.label.trim() ? `${l.label.trim()}: ${l.url.trim()}` : l.url.trim())),
+    ...c.links
+      .filter((l) => l.url.trim())
+      .map((l) => (l.label.trim() ? `${l.label.trim()}: ${l.url.trim()}` : l.url.trim())),
   ].filter(Boolean);
   if (contact.length) out.push(contact.join(" | "));
-  const block = (title: string, lines: string[]) => {
-    if (lines.length) out.push("", title.toUpperCase(), ...lines);
+
+  const edu = c.education.filter(nonEmpty);
+  const exp = c.experience.filter(nonEmpty);
+  const proj = c.projects.filter(nonEmpty);
+  const certs = c.certificates.filter(nonEmpty);
+  const skills = c.skills.filter((s) => s.label.trim() || s.items.trim());
+  const extra = c.extra.filter(nonEmpty);
+
+  const plainBlocks: Record<ResumeSectionId, { defaultTitle: string; lines: string[] }> = {
+    summary: {
+      defaultTitle: "Professional Summary",
+      lines: c.summary.trim() ? [c.summary.trim()] : [],
+    },
+    education: {
+      defaultTitle: "Education",
+      lines: edu.map((e) => {
+        const head = [e.school.trim(), e.location.trim()].filter(Boolean).join(", ");
+        const sub = [e.degree.trim(), [e.start.trim(), e.end.trim()].filter(Boolean).join(" -- ")]
+          .filter(Boolean)
+          .join(", ");
+        return [head, sub + (e.grade.trim() ? ` (Grade: ${e.grade.trim()})` : "")]
+          .filter(Boolean)
+          .join("\n");
+      }),
+    },
+    experience: {
+      defaultTitle: "Experience",
+      lines: exp.flatMap((e) => {
+        const head = [e.title.trim(), e.company.trim()].filter(Boolean).join(" at ");
+        const sub = [[e.start.trim(), e.end.trim()].filter(Boolean).join(" -- "), e.location.trim()]
+          .filter(Boolean)
+          .join(", ");
+        return [
+          [head, sub].filter(Boolean).join("\n"),
+          ...lines(e.bullets).map((b) => `- ${b}`),
+        ];
+      }),
+    },
+    projects: {
+      defaultTitle: "Projects",
+      lines: proj.flatMap((p) => {
+        const head = [[p.name.trim(), p.tech.trim()].filter(Boolean).join(" | "), p.date.trim()]
+          .filter(Boolean)
+          .join("\n");
+        return [head, ...lines(p.bullets).map((b) => `- ${b}`)].filter(Boolean);
+      }),
+    },
+    skills: {
+      defaultTitle: "Technical Skills",
+      lines: skills.map((s) => `${s.label.trim()}: ${s.items.trim()}`),
+    },
+    certificates: {
+      defaultTitle: "Certificates",
+      lines: certs.map((x) =>
+        [x.name.trim(), [x.issuer.trim(), x.date.trim()].filter(Boolean).join(", ")]
+          .filter(Boolean)
+          .join(" - ")
+      ),
+    },
+    extra: {
+      defaultTitle: "Extra Curricular",
+      lines: extra.map((x) => [x.title.trim(), x.detail.trim()].filter(Boolean).join(": ")),
+    },
   };
-  if (c.summary.trim()) block("Professional Summary", [c.summary.trim()]);
-  block(
-    "Education",
-    c.education.filter(nonEmpty).map((e) => {
-      const head = [e.school.trim(), e.location.trim()].filter(Boolean).join(", ");
-      const sub = [e.degree.trim(), [e.start.trim(), e.end.trim()].filter(Boolean).join(" -- ")]
-        .filter(Boolean)
-        .join(", ");
-      return [head, sub + (e.grade.trim() ? ` (Grade: ${e.grade.trim()})` : "")]
-        .filter(Boolean)
-        .join("\n");
-    }),
-  );
-  block(
-    "Experience",
-    c.experience.filter(nonEmpty).flatMap((e) => {
-      const head = [e.title.trim(), e.company.trim()].filter(Boolean).join(" at ");
-      const sub = [[e.start.trim(), e.end.trim()].filter(Boolean).join(" -- "), e.location.trim()]
-        .filter(Boolean)
-        .join(", ");
-      return [
-        [head, sub].filter(Boolean).join("\n"),
-        ...lines(e.bullets).map((b) => `- ${b}`),
-      ];
-    }),
-  );
-  block(
-    "Projects",
-    c.projects.filter(nonEmpty).flatMap((p) => {
-      const head = [[p.name.trim(), p.tech.trim()].filter(Boolean).join(" | "), p.date.trim()]
-        .filter(Boolean)
-        .join("\n");
-      return [head, ...lines(p.bullets).map((b) => `- ${b}`)].filter(Boolean);
-    }),
-  );
-  block(
-    "Technical Skills",
-    c.skills
-      .filter((s) => s.label.trim() || s.items.trim())
-      .map((s) => `${s.label.trim()}: ${s.items.trim()}`),
-  );
-  block(
-    "Certificates",
-    c.certificates
-      .filter(nonEmpty)
-      .map((x) => [x.name.trim(), [x.issuer.trim(), x.date.trim()].filter(Boolean).join(", ")].filter(Boolean).join(" - ")),
-  );
-  block(
-    "Extra Curricular",
-    c.extra
-      .filter(nonEmpty)
-      .map((x) => [x.title.trim(), x.detail.trim()].filter(Boolean).join(": ")),
-  );
+
+  const handled = new Set<string>();
+  const addBlock = (title: string, lns: string[]) => {
+    if (lns.length) out.push("", title.toUpperCase(), ...lns);
+  };
+
+  for (const secId of config.sectionOrder) {
+    handled.add(secId);
+    const item = plainBlocks[secId];
+    if (!item || !item.lines.length) continue;
+    const title = TITLE_OVERRIDES[config.templateId]?.[secId] || item.defaultTitle;
+    addBlock(title, item.lines);
+  }
+
+  for (const [secId, item] of Object.entries(plainBlocks) as [
+    ResumeSectionId,
+    { defaultTitle: string; lines: string[] },
+  ][]) {
+    if (!handled.has(secId) && item.lines.length) {
+      const title = TITLE_OVERRIDES[config.templateId]?.[secId] || item.defaultTitle;
+      addBlock(title, item.lines);
+    }
+  }
+
   return out.join("\n");
 }
 

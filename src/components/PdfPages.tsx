@@ -86,15 +86,19 @@ export default function PdfPages({ url }: { url: string }) {
       </div>
     );
   return (
-    <div className="flex h-full flex-col items-center gap-4 overflow-auto bg-zinc-100 p-4 dark:bg-zinc-900">
+    <div className="flex h-full flex-col items-center gap-6 overflow-auto bg-muted/30 p-6">
       {Array.from({ length: numPages }, (_, i) => (
-        <canvas
+        <div
           key={`${url}-${i}`}
-          ref={(el) => {
-            canvasRefs.current[i] = el;
-          }}
-          className="w-full max-w-3xl bg-white shadow"
-        />
+          className="w-full max-w-3xl overflow-hidden rounded-lg border bg-white shadow-md transition-shadow"
+        >
+          <canvas
+            ref={(el) => {
+              canvasRefs.current[i] = el;
+            }}
+            className="w-full block"
+          />
+        </div>
       ))}
     </div>
   );

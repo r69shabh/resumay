@@ -15,9 +15,93 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://makeresumay.vercel.app";
+
 export const metadata: Metadata = {
-  title: "resumay — LaTeX typesetting, zero LaTeX required",
-  description: "Fill in sections, get a polished ATS-friendly PDF with a shareable link.",
+  metadataBase: new URL(appUrl),
+  title: {
+    default: "resumay — Free ATS-Safe LaTeX Resume Builder",
+    template: "%s | resumay",
+  },
+  description:
+    "Build disciplined, single-column LaTeX resumes in minutes without writing TeX code. Form-first editor, real-time Tectonic PDF preview, ATS text validation, and instant share links.",
+  applicationName: "resumay",
+  keywords: [
+    "resume builder",
+    "latex resume builder",
+    "ats resume",
+    "ats friendly resume",
+    "tectonic latex",
+    "software engineer resume",
+    "tech resume",
+    "investment banking resume",
+    "management consulting resume",
+    "free resume builder",
+    "single column resume",
+  ],
+  authors: [{ name: "r69shabh", url: "https://x.com/r69shabh" }],
+  creator: "r69shabh",
+  publisher: "resumay",
+  alternates: {
+    canonical: "/",
+  },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-icon", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: appUrl,
+    title: "resumay — Free ATS-Safe LaTeX Resume Builder",
+    description:
+      "Build disciplined, single-column LaTeX resumes in minutes without writing TeX code. Form-first editor, real-time Tectonic PDF preview, ATS text validation, and instant share links.",
+    siteName: "resumay",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "resumay — Free ATS-Safe LaTeX Resume Builder",
+    description:
+      "Build disciplined, single-column LaTeX resumes in minutes without writing TeX code. Form-first editor, real-time Tectonic PDF preview, ATS text validation, and instant share links.",
+    creator: "@r69shabh",
+    site: "@r69shabh",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "resumay",
+  url: appUrl,
+  description:
+    "Free ATS-Safe LaTeX Resume Builder. Disciplined single-column typesetting compiled server-side with Tectonic without writing TeX code.",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "All",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+  author: {
+    "@type": "Person",
+    name: "r69shabh",
+    url: "https://x.com/r69shabh",
+  },
 };
 
 // Auth via Neon Auth (managed Better Auth). force-dynamic: session-dependent
@@ -37,8 +121,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col" data-auth-configured="1">{children}<Toaster /></body>
     </html>
   );

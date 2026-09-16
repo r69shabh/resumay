@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import PdfPages from "@/components/PdfPages";
-import { Btn, Badge, Seg, Card } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { ResumayLogo } from "@/components/ResumayLogo";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/Toaster";
 import {
   FileText,
@@ -14,7 +17,41 @@ import {
   Copy,
   Check,
   AlertCircle,
+  Sun,
+  Moon,
 } from "lucide-react";
+
+function ThemeToggle() {
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    const isDark =
+      localStorage.getItem("theme") === "dark" ||
+      (!("theme" in localStorage) &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    setDark(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
+  }, []);
+
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={toggle}
+      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+      title={dark ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+    </Button>
+  );
+}
 
 export default function ShareViewer({
   title,
@@ -60,7 +97,7 @@ export default function ShareViewer({
     try {
       await navigator.clipboard.writeText(plainText);
       setCopied(true);
-      toast("ATS text copied to clipboard");
+      toast("ATS text copied");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast("Copy failed");
@@ -72,121 +109,105 @@ export default function ShareViewer({
   return (
     <main className="flex h-screen flex-col bg-background">
       {/* Header */}
-      <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4 shadow-2xs">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-foreground font-bold tracking-tight hover:opacity-80 transition-opacity"
-            title="resumay homepage"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-xs">
-              <FileText className="h-4 w-4" />
-            </div>
-            <span className="hidden sm:inline text-sm">resumay</span>
+      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-4 gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/" className="inline-flex shrink-0 items-center gap-2 rounded-md px-2 py-1.5 text-sm font-semibold hover:bg-accent transition-colors group">
+            <ResumayLogo size={20} />
+            <span className="hidden sm:inline">resumay</span>
           </Link>
-
-          <div className="h-4 w-px bg-border hidden sm:block" />
-
-          <div className="flex items-center gap-2 min-w-0">
-            <h1 className="truncate text-sm font-semibold text-foreground">{title}</h1>
-            <Badge variant="indigo" className="hidden md:inline-flex text-[10px]">
-              Public Resume
+          <div className="hidden h-4 w-px bg-border sm:block" />
+          <div className="flex min-w-0 items-center gap-2">
+            <h1 className="truncate text-sm font-medium">{title}</h1>
+            <Badge variant="secondary" className="hidden shrink-0 text-xs md:flex">
+              Public
             </Badge>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Seg
-            options={[
-              { value: "pdf", label: "PDF", icon: <Eye className="h-3 w-3" /> },
-              { value: "text", label: "ATS Text", icon: <FileText className="h-3 w-3" /> },
-            ]}
-            value={view}
-            onChange={setView}
-          />
+        <div className="flex items-center gap-2 shrink-0">
+          <Tabs value={view} onValueChange={(v) => setView(v as "pdf" | "text")}>
+            <TabsList>
+              <TabsTrigger value="pdf" className="text-xs gap-1">
+                <Eye className="h-3 w-3" />
+                PDF
+              </TabsTrigger>
+              <TabsTrigger value="text" className="text-xs gap-1">
+                <FileText className="h-3 w-3" />
+                ATS Text
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {pdfUrl && (
-            <a href={pdfUrl} download={`${slug}.pdf`}>
-              <Btn variant="primary" size="sm" className="gap-1.5 shadow-xs">
-                <Download className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Download PDF</span>
-              </Btn>
+            <a
+              href={pdfUrl}
+              download={`${slug}.pdf`}
+              className="inline-flex h-9 items-center gap-1 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Download PDF</span>
             </a>
           )}
 
-          <Btn variant="outline" size="sm" onClick={downloadTex} className="gap-1.5" title="Download .tex source">
+          <Button variant="outline" size="sm" onClick={downloadTex} className="gap-1" title="Download .tex">
             <Code2 className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">.tex</span>
-          </Btn>
+          </Button>
+
+          <ThemeToggle />
         </div>
       </header>
 
-      {/* Main View Area */}
+      {/* Body */}
       <div className="min-h-0 flex-1">
         {jsonLd && (
           <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
           />
         )}
 
         {view === "text" ? (
-          <div className="h-full overflow-auto bg-secondary/30 p-4 sm:p-6">
+          <div className="h-full overflow-auto bg-muted/30 p-4 sm:p-6">
             <div className="mx-auto max-w-3xl space-y-3">
-              {/* ATS info card */}
-              <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-card p-4 shadow-xs">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="emerald">Clean ATS Extracted Text</Badge>
-                    <span className="text-xs text-muted-foreground">• {words} words</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Directly machine-parsed from the compiled PDF stream. Safe for ATS upload filters.
-                  </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant="secondary">ATS Text</Badge>
+                  <span>{words} words</span>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <Btn variant="outline" size="sm" onClick={() => void copyText()} disabled={!plainText}>
-                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span>{copied ? "Copied" : "Copy text"}</span>
-                  </Btn>
-                  <a
-                    href={`/r/${slug}/text`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground shadow-2xs transition-colors"
-                  >
-                    <span>Raw text</span>
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => void copyText()} disabled={!plainText} className="gap-1">
+                    {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                  <a href={`/r/${slug}/text`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                      Raw text
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
                 </div>
               </div>
-
-              {/* Text area card */}
-              <pre className="min-h-0 w-full overflow-auto rounded-2xl border border-border bg-card p-6 font-mono text-xs leading-relaxed text-foreground shadow-xs whitespace-pre-wrap">
+              <pre className="w-full overflow-auto rounded-lg border bg-card p-6 font-mono text-xs leading-relaxed whitespace-pre-wrap">
                 {plainText ?? "Text version unavailable."}
               </pre>
             </div>
           </div>
         ) : !pdfB64 ? (
           <div className="flex h-full items-center justify-center p-8">
-            <Card className="max-w-md border-red-200 bg-red-50/50 p-6 text-center dark:border-red-900/50 dark:bg-red-950/20">
-              <AlertCircle className="mx-auto h-8 w-8 text-red-500" />
-              <h3 className="mt-2 text-sm font-semibold text-red-700 dark:text-red-300">
-                Compilation Issue
-              </h3>
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400 leading-relaxed">
-                This resume could not be compiled to PDF. The owner may need to review recent changes in the editor.
+            <div className="max-w-sm text-center">
+              <AlertCircle className="mx-auto h-8 w-8 text-muted-foreground" />
+              <h3 className="mt-3 text-sm font-medium">Compilation Issue</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                This resume could not be compiled to PDF. The owner may need to review recent changes.
               </p>
-            </Card>
+            </div>
           </div>
         ) : !pdfUrl ? (
           <div className="flex h-full items-center justify-center gap-2 text-xs text-muted-foreground">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span>Loading PDF viewer…</span>
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
+            Loading PDF…
           </div>
         ) : (
-          <div className="h-full w-full bg-zinc-100/75 dark:bg-zinc-950">
+          <div className="h-full w-full bg-muted/20">
             <PdfPages key={pdfUrl} url={pdfUrl} />
           </div>
         )}

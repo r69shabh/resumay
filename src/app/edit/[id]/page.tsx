@@ -2,9 +2,21 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Suspense, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import NeedKeys, { useAuthConfigured } from "@/components/NeedKeys";
-import { Btn, Badge, Seg, Input, Textarea, labelCls } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/Toaster";
 import { neonAuthClient } from "@/lib/neon-auth-client";
 import LatexPreview, { type PreviewInfo } from "@/components/LatexPreview";
@@ -12,13 +24,15 @@ import {
   defaultContent,
   parseContent,
   renderLatex,
+  getResolvedTemplateConfig,
   type ResumeContent,
+  type ResumeSectionId,
 } from "@/lib/resume";
+import { RESUME_TEMPLATES } from "@/lib/templates-data";
 import {
   ArrowLeft,
   Save,
   Share2,
-  SlidersHorizontal,
   Code2,
   Eye,
   FileCheck,
@@ -32,7 +46,6 @@ import {
   X,
   ChevronDown,
   User,
-  Sparkles,
   Globe,
   GraduationCap,
   Briefcase,
@@ -42,6 +55,12 @@ import {
   Star,
   FileText,
   AlertCircle,
+  SlidersHorizontal,
+  Sparkles,
+  Tag,
+  Layout,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -55,6 +74,44 @@ type Resume = {
   content: unknown;
   customLatex: boolean;
 };
+
+// ─── Theme Toggle Switch ──────────────────────────────────────────────────────
+
+function ThemeToggle() {
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    const isDark =
+      localStorage.getItem("theme") === "dark" ||
+      (!("theme" in localStorage) &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
+    setDark(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
+  }, []);
+
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={toggle}
+      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+      title={dark ? "Switch to light mode" : "Switch to dark mode"}
+    >
+      {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+    </Button>
+  );
+}
+
+// ─── Small form helpers ────────────────────────────────────────────────────────
+
+const labelCls = "mb-1 block text-xs font-medium text-muted-foreground";
 
 function Field({
   label,
@@ -105,12 +162,14 @@ function Area({
   );
 }
 
+// ─── Accordion Section ─────────────────────────────────────────────────────────
+
 function Section({
   title,
   icon,
   count,
   children,
-  open = false,
+  open: defaultOpen = false,
 }: {
   title: string;
   icon?: ReactNode;
@@ -118,31 +177,34 @@ function Section({
   children: ReactNode;
   open?: boolean;
 }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <details
-      open={open}
-      className="group rounded-2xl border border-border bg-card shadow-xs transition-all overflow-hidden"
-    >
-      <summary className="flex cursor-pointer list-none items-center gap-2.5 px-4 py-3.5 text-sm font-semibold select-none hover:bg-secondary/40 transition-colors [&::-webkit-details-marker]:hidden">
-        {icon && (
-          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-secondary text-muted-foreground group-hover:text-primary transition-colors">
-            {icon}
-          </div>
-        )}
-        <span className="flex-1 text-foreground">{title}</span>
+    <div className="rounded-lg border bg-card shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium select-none hover:bg-accent transition-colors text-left rounded-lg"
+      >
+        {icon && <span className="text-muted-foreground">{icon}</span>}
+        <span className="flex-1">{title}</span>
         {count !== undefined && count > 0 && (
-          <Badge variant="secondary" className="px-2 py-0 text-[11px]">
+          <Badge variant="secondary" className="text-xs">
             {count}
           </Badge>
         )}
-        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
-      </summary>
-      <div className="flex flex-col gap-4 border-t border-border/50 p-4 pt-3">{children}</div>
-    </details>
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-4 border-t px-4 py-4">{children}</div>
+      )}
+    </div>
   );
 }
 
-// Generic add/remove list for entry rows.
+// ─── Generic entry list ────────────────────────────────────────────────────────
+
 function Entries<T>({
   items,
   onChange,
@@ -159,56 +221,52 @@ function Entries<T>({
   titleFn?: (item: T, index: number) => string;
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="space-y-4">
       {items.map((item, i) => {
         const itemTitle = titleFn ? titleFn(item, i) : `Entry #${i + 1}`;
         return (
-          <div
-            key={i}
-            className="flex flex-col gap-3.5 rounded-xl border border-border/80 bg-secondary/25 p-3.5 transition-all hover:border-border"
-          >
-            <div className="flex items-center justify-between border-b border-border/40 pb-2">
-              <span className="text-xs font-semibold text-muted-foreground truncate max-w-[240px]">
+          <div key={i} className={`space-y-3 ${i > 0 ? "border-t pt-4" : ""}`}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-foreground">
                 {itemTitle}
               </span>
-              <Btn
+              <Button
                 type="button"
                 variant="ghost"
-                size="xs"
+                size="sm"
                 onClick={() => onChange(items.filter((_, j) => j !== i))}
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
-                title="Remove entry"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                title="Remove"
               >
-                <Trash2 className="h-3 w-3" />
-              </Btn>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             </div>
             {render(item, (v) => onChange(items.map((it, j) => (j === i ? v : it))))}
           </div>
         );
       })}
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         onClick={() => onChange([...items, blank])}
-        className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-2.5 text-xs font-medium text-muted-foreground transition-all hover:border-indigo-400 hover:bg-indigo-50/40 hover:text-primary dark:hover:border-indigo-800 dark:hover:bg-indigo-950/20"
+        className="w-full h-8 text-xs gap-1.5 border-dashed"
       >
         <Plus className="h-3.5 w-3.5" />
-        <span>{addLabel}</span>
-      </button>
+        {addLabel}
+      </Button>
     </div>
   );
 }
 
-// What an ATS/parser extracts from the saved PDF.
-type AtsResult = { text?: string; error?: string; log?: string; status: number };
+// ─── ATS Panel ─────────────────────────────────────────────────────────────────
+
+type AtsResult = { text?: string; error?: string; status: number };
 
 async function loadText(id: string): Promise<AtsResult> {
   try {
     const r = await fetch(`/api/resumes/${id}/text`);
-    const d = (await r.json().catch(() => ({}))) as {
-      text?: string;
-      error?: string;
-      log?: string;
-    };
+    const d = (await r.json().catch(() => ({}))) as { text?: string; error?: string };
     return { ...d, status: r.status };
   } catch (e: unknown) {
     return { error: e instanceof Error ? e.message : String(e), status: 0 };
@@ -232,7 +290,7 @@ function AtsBody({
     try {
       await navigator.clipboard.writeText(result.text);
       setCopied(true);
-      toast("ATS text copied to clipboard");
+      toast("ATS text copied");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast("Copy failed");
@@ -240,44 +298,35 @@ function AtsBody({
   };
 
   const words = result.text ? result.text.trim().split(/\s+/).filter(Boolean).length : 0;
-  const chars = result.text ? result.text.length : 0;
 
   return (
-    <div className="flex h-full flex-col gap-3 bg-secondary/30 p-4">
-      {/* Stats bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-2xs">
-        <div className="flex items-center gap-2 text-xs">
-          <Badge variant="emerald">ATS Parsed</Badge>
-          <span className="text-muted-foreground">
-            {words} words • {chars} characters
-          </span>
+    <div className="flex h-full flex-col gap-3 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-card px-3 py-2">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant="secondary">ATS Parsed</Badge>
+          <span>{words} words</span>
+          {stale && <span className="text-yellow-600 dark:text-yellow-400">• Unsaved edits</span>}
         </div>
-
         <div className="flex items-center gap-1.5">
-          {stale && (
-            <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
-              ● Unsaved edits
-            </span>
-          )}
-          <Btn variant="outline" size="xs" onClick={() => void copy()} disabled={!result.text}>
-            {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
-            <span>{copied ? "Copied" : "Copy text"}</span>
-          </Btn>
-          <Btn variant="outline" size="xs" onClick={onRefresh}>
+          <Button variant="outline" size="sm" onClick={() => void copy()} disabled={!result.text}>
+            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            {copied ? "Copied" : "Copy"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={onRefresh}>
             Refresh
-          </Btn>
+          </Button>
         </div>
       </div>
 
       {result.error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-          <p className="font-semibold">Text extraction failed</p>
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
+          <p className="font-medium">Extraction failed</p>
           <p className="mt-1">{result.error}</p>
         </div>
       )}
 
       {result.text && (
-        <pre className="flex-1 overflow-auto rounded-xl border border-border bg-card p-4 font-mono text-xs leading-relaxed text-foreground shadow-2xs whitespace-pre-wrap">
+        <pre className="flex-1 overflow-auto rounded-md border bg-card p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap">
           {result.text}
         </pre>
       )}
@@ -287,20 +336,20 @@ function AtsBody({
 
 function AtsPanel({ id, stale }: { id: string; stale: boolean }) {
   const [promise, setPromise] = useState<Promise<AtsResult>>(() => loadText(id));
-  const refresh = () => setPromise(loadText(id));
-
   return (
     <Suspense
       fallback={
         <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-          Extracting text from PDF…
+          Extracting text…
         </div>
       }
     >
-      <AtsBody promise={promise} onRefresh={refresh} stale={stale} />
+      <AtsBody promise={promise} onRefresh={() => setPromise(loadText(id))} stale={stale} />
     </Suspense>
   );
 }
+
+// ─── Share Dialog ──────────────────────────────────────────────────────────────
 
 function ShareDialog({
   slug,
@@ -321,86 +370,66 @@ function ShareDialog({
     try {
       await navigator.clipboard.writeText(shareHref);
       setCopied(true);
-      toast("Public link copied to clipboard");
+      toast("Link copied");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast("Copy failed in this browser");
+      toast("Copy failed");
     }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95"
+        className="w-full max-w-md rounded-lg border bg-card p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-primary dark:bg-indigo-950/50">
-              <Share2 className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-foreground">Share resume</h2>
-              <p className="text-[11px] text-muted-foreground">Publicly accessible via direct link</p>
-            </div>
+          <div>
+            <h2 className="text-sm font-semibold">Share resume</h2>
+            <p className="text-xs text-muted-foreground">Publicly accessible via link</p>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-          >
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Input
-            readOnly
-            value={shareHref}
-            onFocus={(e) => e.target.select()}
-            className="font-mono text-xs"
-          />
-          <Btn variant="primary" size="default" onClick={() => void copy()} className="shrink-0">
-            {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
-            <span>{copied ? "Copied" : "Copy"}</span>
-          </Btn>
+          <Input readOnly value={shareHref} onFocus={(e) => e.target.select()} className="font-mono text-xs" />
+          <Button variant="outline" onClick={() => void copy()} className="shrink-0">
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? "Copied" : "Copy"}
+          </Button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2 border-t border-border pt-4">
-          <Link href={`/r/${slug}`} target="_blank">
-            <Btn variant="outline" size="sm" className="w-full justify-center">
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span>Open web page</span>
-            </Btn>
+        <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-4">
+          <Link href={`/r/${slug}`} target="_blank" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border bg-card px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open page
           </Link>
-
           {pdfUrl && (
-            <a href={pdfUrl} download={`${slug}.pdf`}>
-              <Btn variant="outline" size="sm" className="w-full justify-center">
-                <Download className="h-3.5 w-3.5" />
-                <span>Download PDF</span>
-              </Btn>
+            <a href={pdfUrl} download={`${slug}.pdf`} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border bg-card px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
+              <Download className="h-3.5 w-3.5" />
+              Download PDF
             </a>
           )}
-
-          <Btn variant="outline" size="sm" onClick={onDownloadTex} className="w-full justify-center">
+          <Button variant="outline" size="sm" onClick={onDownloadTex}>
             <Code2 className="h-3.5 w-3.5" />
-            <span>Download .tex</span>
-          </Btn>
-
-          <Link href={`/r/${slug}/text`} target="_blank">
-            <Btn variant="ghost" size="sm" className="w-full justify-center">
-              <FileText className="h-3.5 w-3.5" />
-              <span>Raw text</span>
-            </Btn>
+            Download .tex
+          </Button>
+          <Link href={`/r/${slug}/text`} target="_blank" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+            <FileText className="h-3.5 w-3.5" />
+            Raw text
           </Link>
         </div>
       </div>
     </div>
   );
 }
+
+// ─── Main Editor ───────────────────────────────────────────────────────────────
 
 function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -414,10 +443,13 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const [atsKey, setAtsKey] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState<PreviewInfo | null>(null);
   const onInfo = useCallback((i: PreviewInfo) => setInfo(i), []);
+
+  const resolvedConfig = useMemo(() => getResolvedTemplateConfig(content), [content]);
 
   useEffect(() => {
     if (!user) return;
@@ -463,7 +495,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
       setDirty(false);
       setAtsKey((k) => k + 1);
       setSaveMsg(`Saved at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
-      toast("Resume saved");
+      toast("Saved");
     } else {
       setSaveMsg("Save failed");
       toast("Save failed");
@@ -509,32 +541,30 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
 
   if (!user)
     return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-primary dark:bg-indigo-950/50">
-          <User className="h-6 w-6" />
+      <main className="flex min-h-screen items-center justify-center p-6 text-center">
+        <div>
+          <User className="mx-auto h-8 w-8 text-muted-foreground" />
+          <h2 className="mt-3 text-base font-semibold">Sign in to edit</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Your drafts stay private.</p>
+          <Button
+            className="mt-4"
+            onClick={() =>
+              void neonAuthClient.signIn.social({
+                provider: "google",
+                callbackURL: `/edit/${id}`,
+              })
+            }
+          >
+            Sign in with Google
+          </Button>
         </div>
-        <h2 className="mt-4 text-base font-bold text-foreground">Sign in to edit this resume</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Your drafts stay private to your Google account.</p>
-        <Btn
-          variant="primary"
-          size="default"
-          onClick={() =>
-            void neonAuthClient.signIn.social({
-              provider: "google",
-              callbackURL: `/edit/${id}`,
-            })
-          }
-          className="mt-5"
-        >
-          Sign in with Google
-        </Btn>
       </main>
     );
 
   if (!resume)
     return (
-      <main className="flex h-screen items-center justify-center text-xs text-muted-foreground">
-        {saveMsg || "Loading resume editor…"}
+      <main className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+        {saveMsg || "Loading…"}
       </main>
     );
 
@@ -542,16 +572,19 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <main className="flex h-screen flex-col bg-background">
-      {/* Top Header Bar */}
-      <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4 shadow-2xs">
+      {/* Top Bar */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-4 gap-4">
+        {/* Left: Navigation & Document Meta */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <Link
             href="/"
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors shrink-0"
             title="Back to dashboard"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
+
+          <div className="h-4 w-px bg-border shrink-0" />
 
           <input
             value={resume.title}
@@ -560,61 +593,146 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               setDirty(true);
             }}
             placeholder="Untitled resume"
-            className="min-w-0 flex-1 max-w-xs rounded-lg px-2 py-1 text-sm font-bold text-foreground hover:bg-secondary/50 focus:bg-card focus:ring-1 focus:ring-primary outline-none transition-all"
+            className="h-8 min-w-0 max-w-xs rounded-md px-2 text-sm font-semibold outline-none hover:bg-muted/50 focus:bg-muted/50 focus:ring-1 focus:ring-ring transition-colors truncate"
           />
 
-          <input
-            value={resume.roleTag}
-            onChange={(e) => {
-              setResume({ ...resume, roleTag: e.target.value });
-              setDirty(true);
-            }}
-            placeholder="Role Tag"
-            className="hidden w-24 rounded-full border border-border bg-secondary/50 px-2.5 py-0.5 text-center text-xs font-medium text-foreground outline-none focus:border-primary sm:block"
-          />
+          <div className="hidden items-center gap-1 rounded-md border border-dashed px-2 h-7 text-xs text-muted-foreground hover:border-border transition-colors sm:flex">
+            <Tag className="h-3 w-3 shrink-0" />
+            <input
+              value={resume.roleTag}
+              onChange={(e) => {
+                setResume({ ...resume, roleTag: e.target.value });
+                setDirty(true);
+              }}
+              placeholder="Add tag"
+              className="w-16 bg-transparent outline-none text-xs text-foreground placeholder:text-muted-foreground/60"
+            />
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          {/* Mode Switcher */}
-          <Seg
-            options={[
-              { value: "form", label: "Form", icon: <SlidersHorizontal className="h-3 w-3" /> },
-              { value: "latex", label: "LaTeX", icon: <Code2 className="h-3 w-3" /> },
-            ]}
-            value={tab}
-            onChange={setTab}
-          />
+        {/* Right: Controls, Status & Actions */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Template Layout Switcher */}
+          {tab === "form" && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setTemplateMenuOpen((o) => !o)}
+                className="inline-flex items-center gap-1.5 h-8 rounded-md border border-border/80 bg-background hover:bg-muted/50 px-2.5 text-xs text-foreground transition-colors cursor-pointer"
+                title="Change Template Layout"
+              >
+                <Layout className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="font-medium text-foreground truncate max-w-[130px]">
+                  {RESUME_TEMPLATES.find((t) => t.id === (content.template || "swe"))?.name || "Template"}
+                </span>
+                <ChevronDown className="h-3 w-3 opacity-60 shrink-0" />
+              </button>
+              {templateMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setTemplateMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border bg-popover p-1 shadow-lg z-50 animate-in fade-in zoom-in-95">
+                    <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Switch Template
+                    </div>
+                    {RESUME_TEMPLATES.map((tmpl) => {
+                      const isActive = (content.template || "swe") === tmpl.id;
+                      return (
+                        <button
+                          key={tmpl.id}
+                          type="button"
+                          onClick={() => {
+                            touch({
+                              ...content,
+                              template: tmpl.id,
+                              templateConfig: {
+                                templateId: tmpl.id,
+                              },
+                            });
+                            setTemplateMenuOpen(false);
+                            toast(`Switched to ${tmpl.name}`);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs transition-colors cursor-pointer text-left ${
+                            isActive
+                              ? "bg-accent font-medium text-accent-foreground"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-medium">{tmpl.name}</div>
+                            <div className="text-[10px] text-muted-foreground font-normal truncate">
+                              {tmpl.layoutInfo.typography.split(" ")[0]} · {tmpl.layoutInfo.priority}
+                            </div>
+                          </div>
+                          {isActive && (
+                            <Check className="h-3.5 w-3.5 shrink-0 text-foreground ml-2" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
-          {/* Save status pill */}
-          <div className="hidden items-center gap-1.5 px-2 text-xs md:flex">
-            {dirty ? (
-              <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
-                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                Unsaved
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                {saveMsg || "Saved"}
-              </span>
-            )}
+          {/* Form / LaTeX Switcher */}
+          <Tabs value={tab} onValueChange={(v) => setTab(v as "form" | "latex")}>
+            <TabsList className="h-8 p-0.5 bg-muted">
+              <TabsTrigger value="form" className="h-7 px-2.5 text-xs gap-1.5">
+                <SlidersHorizontal className="h-3 w-3" />
+                <span>Form</span>
+              </TabsTrigger>
+              <TabsTrigger value="latex" className="h-7 px-2.5 text-xs gap-1.5">
+                <Code2 className="h-3 w-3" />
+                <span>LaTeX</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="hidden h-4 w-px bg-border sm:block" />
+
+          {/* Save status */}
+          <div className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
+            <span
+              className={`h-2 w-2 rounded-full transition-colors ${
+                dirty ? "bg-amber-500" : "bg-emerald-500"
+              }`}
+            />
+            <span className="text-xs">
+              {dirty ? "Unsaved" : saveMsg || "Saved"}
+            </span>
           </div>
 
-          <Btn
-            variant={dirty ? "primary" : "secondary"}
-            size="sm"
-            disabled={saving}
-            onClick={() => void save()}
-            className="gap-1.5"
-          >
-            <Save className="h-3.5 w-3.5" />
-            <span>{saving ? "Saving…" : "Save"}</span>
-          </Btn>
+          <div className="hidden h-4 w-px bg-border sm:block" />
 
-          <Btn variant="outline" size="sm" onClick={() => setShareOpen(true)} className="gap-1.5">
-            <Share2 className="h-3.5 w-3.5" />
-            <span>Share</span>
-          </Btn>
+          {/* Action buttons */}
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant={dirty ? "default" : "outline"}
+              disabled={saving}
+              onClick={() => void save()}
+              className="h-8 gap-1.5 text-xs px-3 shadow-xs"
+            >
+              <Save className="h-3.5 w-3.5" />
+              <span>{saving ? "Saving…" : "Save"}</span>
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShareOpen(true)}
+              className="h-8 gap-1.5 text-xs px-3 shadow-xs"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              <span>Share</span>
+            </Button>
+
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -628,235 +746,197 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
         />
       )}
 
-      {/* Main Two-Pane Layout */}
+      {/* Two-pane layout */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto md:grid-cols-2 md:overflow-hidden">
-        {/* Left Pane: Form Editor or Monaco LaTeX */}
-        <div className="flex min-h-0 flex-col gap-3.5 overflow-y-auto p-4 sm:p-5 md:border-r border-border bg-background">
+        {/* Left: Form or LaTeX editor */}
+        <div className="h-full min-h-0 overflow-y-auto border-r p-4">
           {tab === "form" ? (
-            <>
+            <div className="space-y-4 pb-12">
               {resume.customLatex && (
-                <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50/80 p-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
-                  <span className="flex-1">
-                    This resume has custom LaTeX code. Editing the form will re-generate and overwrite raw edits.
+                <div className="flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  <span className="flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    Custom LaTeX active. Form edits will overwrite raw edits.
                   </span>
                 </div>
               )}
 
               <Section title="Personal details" icon={<User className="h-3.5 w-3.5" />} open>
-                <Field
-                  label="Full name"
-                  value={content.name}
-                  onChange={(v) => touch({ ...content, name: v })}
-                  placeholder="Jane Doe"
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field
-                    label="Phone"
-                    value={content.phone}
-                    onChange={(v) => touch({ ...content, phone: v })}
-                    placeholder="+1 (555) 000-0000"
-                  />
-                  <Field
-                    label="Email"
-                    value={content.email}
-                    onChange={(v) => touch({ ...content, email: v })}
-                    placeholder="jane@example.com"
-                  />
+                <Field label="Full name" value={content.name} onChange={(v) => touch({ ...content, name: v })} placeholder="Jane Doe" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Phone" value={content.phone} onChange={(v) => touch({ ...content, phone: v })} placeholder="+1 555 000-0000" />
+                  <Field label="Email" value={content.email} onChange={(v) => touch({ ...content, email: v })} placeholder="jane@example.com" />
                 </div>
-                <Field
-                  label="Location"
-                  value={content.location}
-                  onChange={(v) => touch({ ...content, location: v })}
-                  placeholder="San Francisco, CA"
-                />
+                <Field label="Location" value={content.location} onChange={(v) => touch({ ...content, location: v })} placeholder="San Francisco, CA" />
               </Section>
 
-              <Section title="Professional summary" icon={<Sparkles className="h-3.5 w-3.5" />}>
-                <Area
-                  label="Summary (2–4 punchy lines)"
-                  rows={4}
-                  value={content.summary}
-                  onChange={(v) => touch({ ...content, summary: v })}
-                  placeholder="Results-driven Software Engineer with 4+ years building high-throughput services..."
-                />
-              </Section>
-
-              <Section title="Social links" icon={<Globe className="h-3.5 w-3.5" />} count={content.links.length}>
-                <Entries
-                  items={content.links}
-                  onChange={(links) => touch({ ...content, links })}
-                  blank={{ label: "", url: "" }}
-                  addLabel="Add social link"
-                  titleFn={(l) => l.label || l.url || "New Link"}
-                  render={(l, set) => (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field
-                        label="Platform / Label"
-                        value={l.label}
-                        onChange={(v) => set({ ...l, label: v })}
-                        placeholder="GitHub / LinkedIn"
+              {/* Dynamic sections ordered by active template configuration */}
+              {resolvedConfig.sectionOrder.map((secId) => {
+                if (secId === "summary") {
+                  return (
+                    <Section key="summary" title="Professional summary" icon={<Sparkles className="h-3.5 w-3.5" />}>
+                      <Area label="Summary" rows={4} value={content.summary} onChange={(v) => touch({ ...content, summary: v })} placeholder="Results-driven engineer…" />
+                    </Section>
+                  );
+                }
+                if (secId === "experience") {
+                  return (
+                    <Section key="experience" title="Work Experience" icon={<Briefcase className="h-3.5 w-3.5" />} count={content.experience.length} open>
+                      <Entries
+                        items={content.experience}
+                        onChange={(experience) => touch({ ...content, experience })}
+                        blank={{ title: "", company: "", location: "", start: "", end: "", bullets: "" }}
+                        addLabel="Add experience"
+                        titleFn={(exp) => (exp.company ? `${exp.title || "Role"} @ ${exp.company}` : "New Experience")}
+                        render={(e, set) => (
+                          <>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Field label="Job Title" value={e.title} onChange={(v) => set({ ...e, title: v })} placeholder="Senior Software Engineer" />
+                              <Field label="Company" value={e.company} onChange={(v) => set({ ...e, company: v })} placeholder="Stripe" />
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <Field label="Location" value={e.location} onChange={(v) => set({ ...e, location: v })} placeholder="SF, CA" />
+                              <Field label="Start" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="Jan 2023" />
+                              <Field label="End" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="Present" />
+                            </div>
+                            <Area label="Bullets (one per line)" rows={3} value={e.bullets} onChange={(v) => set({ ...e, bullets: v })} placeholder="Reduced latency by 40%…" />
+                          </>
+                        )}
                       />
-                      <Field
-                        label="Profile URL"
-                        value={l.url}
-                        onChange={(v) => set({ ...l, url: v })}
-                        placeholder="https://…"
+                    </Section>
+                  );
+                }
+                if (secId === "projects") {
+                  return (
+                    <Section key="projects" title="Projects" icon={<FolderGit2 className="h-3.5 w-3.5" />} count={content.projects.length}>
+                      <Entries
+                        items={content.projects}
+                        onChange={(projects) => touch({ ...content, projects })}
+                        blank={{ name: "", tech: "", date: "", url: "", bullets: "" }}
+                        addLabel="Add project"
+                        titleFn={(p) => p.name || "New Project"}
+                        render={(p, set) => (
+                          <>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Field label="Project Name" value={p.name} onChange={(v) => set({ ...p, name: v })} placeholder="Distributed KV Store" />
+                              <Field label="Technologies" value={p.tech} onChange={(v) => set({ ...p, tech: v })} placeholder="Go, Raft, gRPC" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Field label="Date" value={p.date} onChange={(v) => set({ ...p, date: v })} placeholder="Fall 2024" />
+                              <Field label="URL" value={p.url} onChange={(v) => set({ ...p, url: v })} placeholder="https://github.com/…" />
+                            </div>
+                            <Area label="Impact bullets (one per line)" rows={2} value={p.bullets} onChange={(v) => set({ ...p, bullets: v })} />
+                          </>
+                        )}
                       />
-                    </div>
-                  )}
-                />
-              </Section>
-
-              <Section title="Education" icon={<GraduationCap className="h-3.5 w-3.5" />} count={content.education.length} open>
-                <Entries
-                  items={content.education}
-                  onChange={(education) => touch({ ...content, education })}
-                  blank={{ school: "", degree: "", location: "", start: "", end: "", grade: "" }}
-                  addLabel="Add education"
-                  titleFn={(e) => (e.school ? `${e.school}${e.degree ? ` • ${e.degree}` : ""}` : "New School")}
-                  render={(e, set) => (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Field label="School / University" value={e.school} onChange={(v) => set({ ...e, school: v })} placeholder="Stanford University" />
-                        <Field label="Location" value={e.location} onChange={(v) => set({ ...e, location: v })} placeholder="Stanford, CA" />
-                      </div>
-                      <Field label="Degree / Major" value={e.degree} onChange={(v) => set({ ...e, degree: v })} placeholder="B.S. in Computer Science" />
-                      <div className="grid grid-cols-3 gap-3">
-                        <Field label="Start" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="2021" />
-                        <Field label="End" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="2025" />
-                        <Field label="GPA / Grade" value={e.grade} onChange={(v) => set({ ...e, grade: v })} placeholder="3.9/4.0" />
-                      </div>
-                    </>
-                  )}
-                />
-              </Section>
-
-              <Section title="Work Experience" icon={<Briefcase className="h-3.5 w-3.5" />} count={content.experience.length} open>
-                <Entries
-                  items={content.experience}
-                  onChange={(experience) => touch({ ...content, experience })}
-                  blank={{ title: "", company: "", location: "", start: "", end: "", bullets: "" }}
-                  addLabel="Add work experience"
-                  titleFn={(exp) => (exp.company ? `${exp.title || "Role"} @ ${exp.company}` : "New Experience")}
-                  render={(e, set) => (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Field label="Job Title" value={e.title} onChange={(v) => set({ ...e, title: v })} placeholder="Senior Software Engineer" />
-                        <Field label="Company" value={e.company} onChange={(v) => set({ ...e, company: v })} placeholder="Stripe" />
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <Field label="Location" value={e.location} onChange={(v) => set({ ...e, location: v })} placeholder="San Francisco, CA" />
-                        <Field label="Start Date" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="Jan 2023" />
-                        <Field label="End Date" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="Present" />
-                      </div>
-                      <Area
-                        label="Key Achievements (one bullet per line)"
-                        rows={3}
-                        value={e.bullets}
-                        onChange={(v) => set({ ...e, bullets: v })}
-                        placeholder="Architected payment retry engine reducing failure rate by 14%&#10;Mentored 4 engineers and improved team test coverage to 92%"
+                    </Section>
+                  );
+                }
+                if (secId === "skills") {
+                  return (
+                    <Section key="skills" title="Technical Skills" icon={<Wrench className="h-3.5 w-3.5" />} count={content.skills.length}>
+                      <Entries
+                        items={content.skills}
+                        onChange={(skills) => touch({ ...content, skills })}
+                        blank={{ label: "", items: "" }}
+                        addLabel="Add skill category"
+                        titleFn={(s) => s.label || "Skill Category"}
+                        render={(s, set) => (
+                          <div className="grid grid-cols-[9rem_1fr] gap-3">
+                            <Field label="Category" value={s.label} onChange={(v) => set({ ...s, label: v })} placeholder="Languages" />
+                            <Field label="Skills (comma-separated)" value={s.items} onChange={(v) => set({ ...s, items: v })} placeholder="TypeScript, Python, Go" />
+                          </div>
+                        )}
                       />
-                    </>
-                  )}
-                />
-              </Section>
-
-              <Section title="Projects" icon={<FolderGit2 className="h-3.5 w-3.5" />} count={content.projects.length}>
-                <Entries
-                  items={content.projects}
-                  onChange={(projects) => touch({ ...content, projects })}
-                  blank={{ name: "", tech: "", date: "", url: "", bullets: "" }}
-                  addLabel="Add project"
-                  titleFn={(p) => p.name || "New Project"}
-                  render={(p, set) => (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Field label="Project Name" value={p.name} onChange={(v) => set({ ...p, name: v })} placeholder="Distributed Key-Value Store" />
-                        <Field label="Technologies Used" value={p.tech} onChange={(v) => set({ ...p, tech: v })} placeholder="Go, Raft, gRPC" />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Field label="Date / Timeline" value={p.date} onChange={(v) => set({ ...p, date: v })} placeholder="Fall 2024" />
-                        <Field label="Repository / Demo URL" value={p.url} onChange={(v) => set({ ...p, url: v })} placeholder="https://github.com/…" />
-                      </div>
-                      <Area
-                        label="Impact Bullets (one per line)"
-                        rows={2}
-                        value={p.bullets}
-                        onChange={(v) => set({ ...p, bullets: v })}
-                        placeholder="Achieved linearizable reads with leader leasing&#10;Handled 50k requests/sec benchmarked with k6"
+                    </Section>
+                  );
+                }
+                if (secId === "education") {
+                  return (
+                    <Section key="education" title="Education" icon={<GraduationCap className="h-3.5 w-3.5" />} count={content.education.length} open>
+                      <Entries
+                        items={content.education}
+                        onChange={(education) => touch({ ...content, education })}
+                        blank={{ school: "", degree: "", location: "", start: "", end: "", grade: "" }}
+                        addLabel="Add education"
+                        titleFn={(e) => e.school || "New School"}
+                        render={(e, set) => (
+                          <>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Field label="School" value={e.school} onChange={(v) => set({ ...e, school: v })} placeholder="Stanford University" />
+                              <Field label="Location" value={e.location} onChange={(v) => set({ ...e, location: v })} placeholder="Stanford, CA" />
+                            </div>
+                            <Field label="Degree" value={e.degree} onChange={(v) => set({ ...e, degree: v })} placeholder="B.S. Computer Science" />
+                            <div className="grid grid-cols-3 gap-3">
+                              <Field label="Start" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="2021" />
+                              <Field label="End" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="2025" />
+                              <Field label="GPA" value={e.grade} onChange={(v) => set({ ...e, grade: v })} placeholder="3.9/4.0" />
+                            </div>
+                          </>
+                        )}
                       />
-                    </>
-                  )}
-                />
-              </Section>
-
-              <Section title="Technical Skills" icon={<Wrench className="h-3.5 w-3.5" />} count={content.skills.length}>
-                <Entries
-                  items={content.skills}
-                  onChange={(skills) => touch({ ...content, skills })}
-                  blank={{ label: "", items: "" }}
-                  addLabel="Add skill category"
-                  titleFn={(s) => s.label || "Skill Category"}
-                  render={(s, set) => (
-                    <div className="grid grid-cols-1 sm:grid-cols-[9rem_1fr] gap-3">
-                      <Field label="Category" value={s.label} onChange={(v) => set({ ...s, label: v })} placeholder="Languages" />
-                      <Field label="Skills (comma separated)" value={s.items} onChange={(v) => set({ ...s, items: v })} placeholder="TypeScript, Python, Go, Rust" />
-                    </div>
-                  )}
-                />
-              </Section>
-
-              <Section title="Certificates" icon={<Award className="h-3.5 w-3.5" />} count={content.certificates.length}>
-                <Entries
-                  items={content.certificates}
-                  onChange={(certificates) => touch({ ...content, certificates })}
-                  blank={{ name: "", issuer: "", date: "" }}
-                  addLabel="Add certificate"
-                  titleFn={(c) => c.name || "Certificate"}
-                  render={(c, set) => (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <Field label="Certificate" value={c.name} onChange={(v) => set({ ...c, name: v })} placeholder="AWS Solutions Architect" />
-                      <Field label="Issuer" value={c.issuer} onChange={(v) => set({ ...c, issuer: v })} placeholder="Amazon Web Services" />
-                      <Field label="Date" value={c.date} onChange={(v) => set({ ...c, date: v })} placeholder="2024" />
-                    </div>
-                  )}
-                />
-              </Section>
-
-              <Section title="Extra curricular" icon={<Star className="h-3.5 w-3.5" />} count={content.extra.length}>
-                <Entries
-                  items={content.extra}
-                  onChange={(extra) => touch({ ...content, extra })}
-                  blank={{ title: "", detail: "" }}
-                  addLabel="Add extra-curricular entry"
-                  titleFn={(x) => x.title || "Extra Activity"}
-                  render={(x, set) => (
-                    <div className="grid grid-cols-1 sm:grid-cols-[9rem_1fr] gap-3">
-                      <Field label="Title / Role" value={x.title} onChange={(v) => set({ ...x, title: v })} placeholder="Hackathon Lead" />
-                      <Field label="Description" value={x.detail} onChange={(v) => set({ ...x, detail: v })} placeholder="Organized 24h event with 400+ attendees" />
-                    </div>
-                  )}
-                />
-              </Section>
-            </>
+                    </Section>
+                  );
+                }
+                if (secId === "certificates") {
+                  return (
+                    <Section key="certificates" title="Certificates" icon={<Award className="h-3.5 w-3.5" />} count={content.certificates.length}>
+                      <Entries
+                        items={content.certificates}
+                        onChange={(certificates) => touch({ ...content, certificates })}
+                        blank={{ name: "", issuer: "", date: "" }}
+                        addLabel="Add certificate"
+                        titleFn={(c) => c.name || "Certificate"}
+                        render={(c, set) => (
+                          <div className="grid grid-cols-3 gap-3">
+                            <Field label="Certificate" value={c.name} onChange={(v) => set({ ...c, name: v })} placeholder="AWS SAA" />
+                            <Field label="Issuer" value={c.issuer} onChange={(v) => set({ ...c, issuer: v })} placeholder="Amazon" />
+                            <Field label="Date" value={c.date} onChange={(v) => set({ ...c, date: v })} placeholder="2024" />
+                          </div>
+                        )}
+                      />
+                    </Section>
+                  );
+                }
+                if (secId === "extra") {
+                  return (
+                    <Section key="extra" title="Extra-curricular" icon={<Star className="h-3.5 w-3.5" />} count={content.extra.length}>
+                      <Entries
+                        items={content.extra}
+                        onChange={(extra) => touch({ ...content, extra })}
+                        blank={{ title: "", detail: "" }}
+                        addLabel="Add entry"
+                        titleFn={(x) => x.title || "Activity"}
+                        render={(x, set) => (
+                          <div className="grid grid-cols-[9rem_1fr] gap-3">
+                            <Field label="Title" value={x.title} onChange={(v) => set({ ...x, title: v })} placeholder="Hackathon Lead" />
+                            <Field label="Description" value={x.detail} onChange={(v) => set({ ...x, detail: v })} placeholder="400+ attendees" />
+                          </div>
+                        )}
+                      />
+                    </Section>
+                  );
+                }
+                return null;
+              })}
+            </div>
           ) : (
-            <div className="flex min-h-[30rem] flex-1 flex-col gap-2.5 md:min-h-0">
+            <div className="flex h-full flex-col gap-2">
               {resume.customLatex && (
-                <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50/80 p-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-                  <span>Custom LaTeX mode active. Edits in this editor drive the output.</span>
-                  <Btn variant="outline" size="xs" onClick={() => void resetGenerated()} className="gap-1 bg-white dark:bg-zinc-900">
+                <div className="flex items-center justify-between rounded-md border px-3 py-2 text-xs text-muted-foreground">
+                  <span>Custom LaTeX mode — edits here drive the output.</span>
+                  <Button variant="outline" size="sm" onClick={() => void resetGenerated()} className="gap-1 h-7 text-xs">
                     <RotateCcw className="h-3 w-3" />
-                    <span>Reset to form</span>
-                  </Btn>
+                    Reset to form
+                  </Button>
                 </div>
               )}
               {!resume.customLatex && (
-                <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
-                  <span>LaTeX compiled from form. Edits here will fork this resume into custom mode.</span>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  LaTeX auto-generated from form. Edits here switch to custom mode.
+                </p>
               )}
-              <div className="min-h-64 flex-1 overflow-hidden rounded-2xl border border-border shadow-xs md:min-h-0">
+              <div className="min-h-64 flex-1 overflow-hidden rounded-md border md:min-h-0">
                 <MonacoEditor
                   language="latex"
                   theme="vs-dark"
@@ -865,24 +945,33 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                     setRaw(v ?? "");
                     setDirty(true);
                   }}
-                  options={{ minimap: { enabled: false }, fontSize: 13, wordWrap: "on", scrollBeyondLastLine: false }}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    wordWrap: "on",
+                    scrollBeyondLastLine: false,
+                  }}
                 />
               </div>
             </div>
           )}
         </div>
 
-        {/* Right Pane: Live PDF Preview / ATS text */}
-        <div className="relative flex min-h-[36rem] flex-col bg-zinc-100/75 dark:bg-zinc-950 md:min-h-0">
-          <div className="absolute right-4 top-4 z-10">
-            <Seg
-              options={[
-                { value: "pdf", label: "Live PDF", icon: <Eye className="h-3 w-3" /> },
-                { value: "ats", label: "ATS Scanner", icon: <FileCheck className="h-3 w-3" /> },
-              ]}
-              value={rightPane}
-              onChange={setRightPane}
-            />
+        {/* Right: PDF or ATS */}
+        <div className="relative flex min-h-[36rem] flex-col bg-muted/30 md:min-h-0">
+          <div className="absolute right-3 top-3 z-10">
+            <Tabs value={rightPane} onValueChange={(v) => setRightPane(v as "pdf" | "ats")}>
+              <TabsList>
+                <TabsTrigger value="pdf" className="text-xs gap-1">
+                  <Eye className="h-3 w-3" />
+                  PDF
+                </TabsTrigger>
+                <TabsTrigger value="ats" className="text-xs gap-1">
+                  <FileCheck className="h-3 w-3" />
+                  ATS
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
           <div className="h-full min-h-0 flex-1">
@@ -901,5 +990,6 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
 export default function EditPage({ params }: { params: Promise<{ id: string }> }) {
   const authConfigured = useAuthConfigured();
   if (authConfigured === false) return <NeedKeys />;
+  if (authConfigured === null) return null;
   return <EditInner params={params} />;
 }
