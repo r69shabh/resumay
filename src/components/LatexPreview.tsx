@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import PdfPages from "./PdfPages";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 export type PreviewInfo = {
   pdfUrl: string | null;
@@ -85,25 +86,36 @@ export default function LatexPreview({
       <div className="relative h-full w-full">
         <PdfPages key={pdfUrl} url={pdfUrl} />
         {busy && (
-          <div className="absolute right-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
-            Recompiling…
+          <div className="absolute right-4 top-16 z-20 flex items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 py-1 text-xs font-medium text-foreground shadow-md backdrop-blur-md animate-in fade-in">
+            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            <span>Recompiling…</span>
           </div>
         )}
       </div>
     );
   }
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-zinc-100 p-6 text-center dark:bg-zinc-900">
-      <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-        {!pdfUrl && !failed ? "Compiling…" : "Compilation failed"}
-      </p>
-      {failed && log && (
-        <pre className="max-h-96 w-full overflow-auto rounded bg-black p-3 text-left font-mono text-xs text-red-200">
-          {log}
-        </pre>
-      )}
-      {!failed && (
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600" />
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+      {failed ? (
+        <div className="w-full max-w-lg rounded-2xl border border-red-200 bg-red-50/60 p-6 shadow-sm dark:border-red-900/40 dark:bg-red-950/20">
+          <AlertCircle className="mx-auto h-7 w-7 text-red-500" />
+          <h4 className="mt-2 text-sm font-semibold text-red-700 dark:text-red-300">
+            Compilation Failed
+          </h4>
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+            Tectonic encountered syntax errors in the LaTeX source.
+          </p>
+          {log && (
+            <pre className="mt-3 max-h-72 w-full overflow-auto rounded-xl bg-zinc-950 p-3.5 text-left font-mono text-[11px] leading-relaxed text-red-300">
+              {log}
+            </pre>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-2.5 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-xs font-medium">Typesetting PDF with Tectonic…</p>
+        </div>
       )}
     </div>
   );

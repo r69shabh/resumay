@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Suspense, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import NeedKeys, { useAuthConfigured } from "@/components/NeedKeys";
-import { Btn, Seg, inputCls, labelCls } from "@/components/ui";
+import { Btn, Badge, Seg, Input, Textarea, labelCls } from "@/components/ui";
 import { toast } from "@/components/Toaster";
 import { neonAuthClient } from "@/lib/neon-auth-client";
 import LatexPreview, { type PreviewInfo } from "@/components/LatexPreview";
@@ -14,6 +14,35 @@ import {
   renderLatex,
   type ResumeContent,
 } from "@/lib/resume";
+import {
+  ArrowLeft,
+  Save,
+  Share2,
+  SlidersHorizontal,
+  Code2,
+  Eye,
+  FileCheck,
+  Check,
+  Copy,
+  ExternalLink,
+  Download,
+  RotateCcw,
+  Trash2,
+  Plus,
+  X,
+  ChevronDown,
+  User,
+  Sparkles,
+  Globe,
+  GraduationCap,
+  Briefcase,
+  FolderGit2,
+  Award,
+  Wrench,
+  Star,
+  FileText,
+  AlertCircle,
+} from "lucide-react";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -41,8 +70,7 @@ function Field({
   return (
     <label className="block">
       <span className={labelCls}>{label}</span>
-      <input
-        className={inputCls}
+      <Input
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
@@ -67,8 +95,7 @@ function Area({
   return (
     <label className="block">
       <span className={labelCls}>{label}</span>
-      <textarea
-        className={inputCls}
+      <Textarea
         rows={rows}
         value={value}
         placeholder={placeholder}
@@ -80,11 +107,13 @@ function Area({
 
 function Section({
   title,
+  icon,
   count,
   children,
-  open,
+  open = false,
 }: {
   title: string;
+  icon?: ReactNode;
   count?: number;
   children: ReactNode;
   open?: boolean;
@@ -92,18 +121,23 @@ function Section({
   return (
     <details
       open={open}
-      className="group rounded-xl bg-zinc-100/70 px-4 dark:bg-zinc-900"
+      className="group rounded-2xl border border-border bg-card shadow-xs transition-all overflow-hidden"
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-        <span className="text-zinc-400 transition-transform group-open:rotate-90">›</span>
-        <span className="flex-1">{title}</span>
-        {count !== undefined && count > 0 && (
-          <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-normal text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-            {count}
-          </span>
+      <summary className="flex cursor-pointer list-none items-center gap-2.5 px-4 py-3.5 text-sm font-semibold select-none hover:bg-secondary/40 transition-colors [&::-webkit-details-marker]:hidden">
+        {icon && (
+          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-secondary text-muted-foreground group-hover:text-primary transition-colors">
+            {icon}
+          </div>
         )}
+        <span className="flex-1 text-foreground">{title}</span>
+        {count !== undefined && count > 0 && (
+          <Badge variant="secondary" className="px-2 py-0 text-[11px]">
+            {count}
+          </Badge>
+        )}
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
       </summary>
-      <div className="flex flex-col gap-4 pb-4">{children}</div>
+      <div className="flex flex-col gap-4 border-t border-border/50 p-4 pt-3">{children}</div>
     </details>
   );
 }
@@ -115,41 +149,56 @@ function Entries<T>({
   render,
   blank,
   addLabel,
+  titleFn,
 }: {
   items: T[];
   onChange: (items: T[]) => void;
   render: (item: T, set: (v: T) => void) => ReactNode;
   blank: T;
   addLabel: string;
+  titleFn?: (item: T, index: number) => string;
 }) {
   return (
-    <div className="flex flex-col">
-      {items.map((item, i) => (
-        <div
-          key={i}
-          className="flex flex-col gap-3 border-t border-zinc-200 py-4 first:border-t-0 first:pt-0 last:pb-1 dark:border-zinc-800"
-        >
-          {render(item, (v) => onChange(items.map((it, j) => (j === i ? v : it))))}
-          <button
-            onClick={() => onChange(items.filter((_, j) => j !== i))}
-            className="self-end text-xs text-zinc-400 hover:text-red-600 hover:underline"
+    <div className="flex flex-col gap-3">
+      {items.map((item, i) => {
+        const itemTitle = titleFn ? titleFn(item, i) : `Entry #${i + 1}`;
+        return (
+          <div
+            key={i}
+            className="flex flex-col gap-3.5 rounded-xl border border-border/80 bg-secondary/25 p-3.5 transition-all hover:border-border"
           >
-            Remove
-          </button>
-        </div>
-      ))}
+            <div className="flex items-center justify-between border-b border-border/40 pb-2">
+              <span className="text-xs font-semibold text-muted-foreground truncate max-w-[240px]">
+                {itemTitle}
+              </span>
+              <Btn
+                type="button"
+                variant="ghost"
+                size="xs"
+                onClick={() => onChange(items.filter((_, j) => j !== i))}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                title="Remove entry"
+              >
+                <Trash2 className="h-3 w-3" />
+              </Btn>
+            </div>
+            {render(item, (v) => onChange(items.map((it, j) => (j === i ? v : it))))}
+          </div>
+        );
+      })}
       <button
+        type="button"
         onClick={() => onChange([...items, blank])}
-        className="mt-1 rounded-md border border-dashed px-3 py-2 text-xs text-zinc-500 hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
+        className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-border py-2.5 text-xs font-medium text-muted-foreground transition-all hover:border-indigo-400 hover:bg-indigo-50/40 hover:text-primary dark:hover:border-indigo-800 dark:hover:bg-indigo-950/20"
       >
-        + {addLabel}
+        <Plus className="h-3.5 w-3.5" />
+        <span>{addLabel}</span>
       </button>
     </div>
   );
 }
 
-// What an ATS/parser extracts from the saved PDF. Remounted (via key) after
-// each save. Fetches via Suspense so no state-setting effects are needed.
+// What an ATS/parser extracts from the saved PDF.
 type AtsResult = { text?: string; error?: string; log?: string; status: number };
 
 async function loadText(id: string): Promise<AtsResult> {
@@ -176,33 +225,60 @@ function AtsBody({
   stale: boolean;
 }) {
   const result = use(promise);
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    if (!result.text) return;
+    try {
+      await navigator.clipboard.writeText(result.text);
+      setCopied(true);
+      toast("ATS text copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast("Copy failed");
+    }
+  };
+
+  const words = result.text ? result.text.trim().split(/\s+/).filter(Boolean).length : 0;
+  const chars = result.text ? result.text.length : 0;
+
   return (
-    <div className="flex h-full flex-col gap-2 bg-zinc-50 p-4 dark:bg-zinc-950">
-      <div className="flex items-center gap-2 text-xs text-zinc-500">
-        <span className="flex-1">
-          {stale
-            ? "You have unsaved changes — save to refresh this view."
-            : "Extracted from the last saved PDF — this is what a parser sees."}
-        </span>
-        <button
-          onClick={onRefresh}
-          className="rounded border px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-        >
-          Refresh
-        </button>
-      </div>
-      {result.status !== 200 || result.error ? (
-        <div className="min-h-0 flex-1 overflow-auto">
-          <p className="text-sm text-red-600">{result.error ?? `failed (HTTP ${result.status})`}</p>
-          {result.log && (
-            <pre className="mt-2 max-h-96 overflow-auto rounded bg-black p-3 font-mono text-xs text-red-200">
-              {result.log}
-            </pre>
-          )}
+    <div className="flex h-full flex-col gap-3 bg-secondary/30 p-4">
+      {/* Stats bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-2xs">
+        <div className="flex items-center gap-2 text-xs">
+          <Badge variant="emerald">ATS Parsed</Badge>
+          <span className="text-muted-foreground">
+            {words} words • {chars} characters
+          </span>
         </div>
-      ) : (
-        <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap rounded border bg-white p-3 font-mono text-xs dark:bg-black">
-          {result.text || "(empty — add content and save)"}
+
+        <div className="flex items-center gap-1.5">
+          {stale && (
+            <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+              ● Unsaved edits
+            </span>
+          )}
+          <Btn variant="outline" size="xs" onClick={() => void copy()} disabled={!result.text}>
+            {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            <span>{copied ? "Copied" : "Copy text"}</span>
+          </Btn>
+          <Btn variant="outline" size="xs" onClick={onRefresh}>
+            Refresh
+          </Btn>
+        </div>
+      </div>
+
+      {result.error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+          <p className="font-semibold">Text extraction failed</p>
+          <p className="mt-1">{result.error}</p>
+        </div>
+      )}
+
+      {result.text && (
+        <pre className="flex-1 overflow-auto rounded-xl border border-border bg-card p-4 font-mono text-xs leading-relaxed text-foreground shadow-2xs whitespace-pre-wrap">
+          {result.text}
         </pre>
       )}
     </div>
@@ -210,19 +286,20 @@ function AtsBody({
 }
 
 function AtsPanel({ id, stale }: { id: string; stale: boolean }) {
-  const [promise, setPromise] = useState(() => loadText(id));
+  const [promise, setPromise] = useState<Promise<AtsResult>>(() => loadText(id));
+  const refresh = () => setPromise(loadText(id));
+
   return (
-    <Suspense fallback={<p className="p-4 text-sm text-zinc-500">Extracting…</p>}>
-      <AtsBody promise={promise} onRefresh={() => setPromise(loadText(id))} stale={stale} />
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+          Extracting text from PDF…
+        </div>
+      }
+    >
+      <AtsBody promise={promise} onRefresh={refresh} stale={stale} />
     </Suspense>
   );
-}
-
-export default function EditPage({ params }: { params: Promise<{ id: string }> }) {
-  const authConfigured = useAuthConfigured();
-  if (authConfigured === false) return <NeedKeys />;
-  if (authConfigured === null) return <main className="p-8 text-sm">Loading…</main>;
-  return <EditInner params={params} />;
 }
 
 function ShareDialog({
@@ -244,7 +321,7 @@ function ShareDialog({
     try {
       await navigator.clipboard.writeText(shareHref);
       setCopied(true);
-      toast("Link copied to clipboard");
+      toast("Public link copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast("Copy failed in this browser");
@@ -253,50 +330,71 @@ function ShareDialog({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl dark:bg-zinc-900"
+        className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Share resume</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-primary dark:bg-indigo-950/50">
+              <Share2 className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Share resume</h2>
+              <p className="text-[11px] text-muted-foreground">Publicly accessible via direct link</p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="mt-1 text-xs text-zinc-500">
-          Anyone with the link can view — no sign-in needed.
-        </p>
-        <div className="mt-3 flex gap-2">
-          <input
+
+        <div className="mt-4 flex gap-2">
+          <Input
             readOnly
             value={shareHref}
             onFocus={(e) => e.target.select()}
-            className="min-w-0 flex-1 rounded-md border bg-zinc-50 px-2.5 py-1.5 font-mono text-xs dark:border-zinc-700 dark:bg-zinc-950"
+            className="font-mono text-xs"
           />
-          <Btn variant="primary" onClick={() => void copy()}>
-            {copied ? "Copied!" : "Copy link"}
+          <Btn variant="primary" size="default" onClick={() => void copy()} className="shrink-0">
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+            <span>{copied ? "Copied" : "Copy"}</span>
           </Btn>
         </div>
-        <div className="mt-3 flex flex-wrap gap-2 border-t pt-3 dark:border-zinc-800">
+
+        <div className="mt-5 grid grid-cols-2 gap-2 border-t border-border pt-4">
           <Link href={`/r/${slug}`} target="_blank">
-            <Btn variant="outline">Open public view</Btn>
+            <Btn variant="outline" size="sm" className="w-full justify-center">
+              <ExternalLink className="h-3.5 w-3.5" />
+              <span>Open web page</span>
+            </Btn>
           </Link>
+
           {pdfUrl && (
             <a href={pdfUrl} download={`${slug}.pdf`}>
-              <Btn variant="outline">Download .pdf</Btn>
+              <Btn variant="outline" size="sm" className="w-full justify-center">
+                <Download className="h-3.5 w-3.5" />
+                <span>Download PDF</span>
+              </Btn>
             </a>
           )}
-          <Btn variant="outline" onClick={onDownloadTex}>
-            Download .tex
+
+          <Btn variant="outline" size="sm" onClick={onDownloadTex} className="w-full justify-center">
+            <Code2 className="h-3.5 w-3.5" />
+            <span>Download .tex</span>
           </Btn>
+
           <Link href={`/r/${slug}/text`} target="_blank">
-            <Btn variant="ghost">Raw text</Btn>
+            <Btn variant="ghost" size="sm" className="w-full justify-center">
+              <FileText className="h-3.5 w-3.5" />
+              <span>Raw text</span>
+            </Btn>
           </Link>
         </div>
       </div>
@@ -317,6 +415,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const [dirty, setDirty] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState<PreviewInfo | null>(null);
   const onInfo = useCallback((i: PreviewInfo) => setInfo(i), []);
 
@@ -338,7 +437,6 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
     setDirty(true);
   };
 
-  // Live preview: form renders from edits instantly; raw tab previews raw source.
   const previewSource = useMemo(
     () => (tab === "form" && resume && !resume.customLatex ? renderLatex(content) : raw),
     [tab, content, raw, resume],
@@ -346,6 +444,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
 
   const save = useCallback(async () => {
     if (!resume) return;
+    setSaving(true);
     setSaveMsg("Saving…");
     const body =
       tab === "form"
@@ -356,16 +455,18 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    setSaving(false);
     if (res.ok) {
       const r: Resume = await res.json();
       setResume(r);
       setRaw(r.latexSource);
       setDirty(false);
       setAtsKey((k) => k + 1);
-      setSaveMsg(`Saved ${new Date().toLocaleTimeString()}`);
+      setSaveMsg(`Saved at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
       toast("Resume saved");
     } else {
-      setSaveMsg("Save failed.");
+      setSaveMsg("Save failed");
+      toast("Save failed");
     }
   }, [id, resume, content, raw, tab]);
 
@@ -381,7 +482,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   }, [save]);
 
   const resetGenerated = async () => {
-    if (!confirm("Discard raw LaTeX edits and re-render from the form?")) return;
+    if (!confirm("Discard raw LaTeX edits and re-render from form?")) return;
     const res = await fetch(`/api/resumes/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -392,7 +493,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
       setResume(r);
       setRaw(r.latexSource);
       setDirty(false);
-      setSaveMsg("Re-rendered from form.");
+      setSaveMsg("Re-rendered from form");
       toast("Re-rendered from form");
     }
   };
@@ -408,71 +509,115 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
 
   if (!user)
     return (
-      <main className="mx-auto max-w-md px-6 py-24 text-center">
-        <p className="font-medium">Sign in to edit this resume.</p>
-        <button
+      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-primary dark:bg-indigo-950/50">
+          <User className="h-6 w-6" />
+        </div>
+        <h2 className="mt-4 text-base font-bold text-foreground">Sign in to edit this resume</h2>
+        <p className="mt-1 text-xs text-muted-foreground">Your drafts stay private to your Google account.</p>
+        <Btn
+          variant="primary"
+          size="default"
           onClick={() =>
             void neonAuthClient.signIn.social({
               provider: "google",
               callbackURL: `/edit/${id}`,
             })
           }
-          className="mt-4 rounded bg-black px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+          className="mt-5"
         >
           Sign in with Google
-        </button>
+        </Btn>
       </main>
     );
 
-  if (!resume) return <main className="p-8 text-sm">{saveMsg || "Loading…"}</main>;
+  if (!resume)
+    return (
+      <main className="flex h-screen items-center justify-center text-xs text-muted-foreground">
+        {saveMsg || "Loading resume editor…"}
+      </main>
+    );
 
   const sharePath = `/r/${resume.slug}`;
 
   return (
-    <main className="flex h-screen flex-col">
-      <header className="flex items-center gap-2 border-b px-4 py-2 dark:border-zinc-800">
-        <Link
-          href="/"
-          className="shrink-0 rounded-md px-2 py-1.5 text-sm text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-        >
-          ←
-        </Link>
-        <input
-          value={resume.title}
-          onChange={(e) => {
-            setResume({ ...resume, title: e.target.value });
-            setDirty(true);
-          }}
-          placeholder="Untitled resume"
-          className="min-w-0 flex-1 border-0 bg-transparent px-1 py-1 text-sm font-semibold outline-none placeholder:text-zinc-400 focus:ring-0"
-        />
-        <input
-          value={resume.roleTag}
-          onChange={(e) => {
-            setResume({ ...resume, roleTag: e.target.value });
-            setDirty(true);
-          }}
-          placeholder="Tag"
-          className="hidden w-24 rounded-full border px-2.5 py-1 text-center text-xs outline-none focus:border-indigo-500 sm:block dark:border-zinc-700 dark:bg-zinc-900"
-        />
-        <Seg
-          options={[
-            { value: "form", label: "Form" },
-            { value: "latex", label: "LaTeX" },
-          ]}
-          value={tab}
-          onChange={setTab}
-        />
-        <span className="hidden w-28 shrink-0 text-right text-xs text-zinc-400 lg:block">
-          {dirty ? "● Unsaved" : saveMsg || "All changes saved"}
-        </span>
-        <Btn variant="primary" onClick={() => void save()}>
-          Save
-        </Btn>
-        <Btn variant="outline" onClick={() => setShareOpen(true)}>
-          Share
-        </Btn>
+    <main className="flex h-screen flex-col bg-background">
+      {/* Top Header Bar */}
+      <header className="flex h-14 items-center justify-between border-b border-border bg-card px-4 shadow-2xs">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <Link
+            href="/"
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors shrink-0"
+            title="Back to dashboard"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+
+          <input
+            value={resume.title}
+            onChange={(e) => {
+              setResume({ ...resume, title: e.target.value });
+              setDirty(true);
+            }}
+            placeholder="Untitled resume"
+            className="min-w-0 flex-1 max-w-xs rounded-lg px-2 py-1 text-sm font-bold text-foreground hover:bg-secondary/50 focus:bg-card focus:ring-1 focus:ring-primary outline-none transition-all"
+          />
+
+          <input
+            value={resume.roleTag}
+            onChange={(e) => {
+              setResume({ ...resume, roleTag: e.target.value });
+              setDirty(true);
+            }}
+            placeholder="Role Tag"
+            className="hidden w-24 rounded-full border border-border bg-secondary/50 px-2.5 py-0.5 text-center text-xs font-medium text-foreground outline-none focus:border-primary sm:block"
+          />
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          {/* Mode Switcher */}
+          <Seg
+            options={[
+              { value: "form", label: "Form", icon: <SlidersHorizontal className="h-3 w-3" /> },
+              { value: "latex", label: "LaTeX", icon: <Code2 className="h-3 w-3" /> },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+
+          {/* Save status pill */}
+          <div className="hidden items-center gap-1.5 px-2 text-xs md:flex">
+            {dirty ? (
+              <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
+                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                Unsaved
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                {saveMsg || "Saved"}
+              </span>
+            )}
+          </div>
+
+          <Btn
+            variant={dirty ? "primary" : "secondary"}
+            size="sm"
+            disabled={saving}
+            onClick={() => void save()}
+            className="gap-1.5"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>{saving ? "Saving…" : "Save"}</span>
+          </Btn>
+
+          <Btn variant="outline" size="sm" onClick={() => setShareOpen(true)} className="gap-1.5">
+            <Share2 className="h-3.5 w-3.5" />
+            <span>Share</span>
+          </Btn>
+        </div>
       </header>
+
       {shareOpen && (
         <ShareDialog
           slug={resume.slug}
@@ -483,173 +628,235 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
         />
       )}
 
+      {/* Main Two-Pane Layout */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto md:grid-cols-2 md:overflow-hidden">
-        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-5 md:border-r dark:border-zinc-800">
+        {/* Left Pane: Form Editor or Monaco LaTeX */}
+        <div className="flex min-h-0 flex-col gap-3.5 overflow-y-auto p-4 sm:p-5 md:border-r border-border bg-background">
           {tab === "form" ? (
             <>
               {resume.customLatex && (
-                <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs dark:bg-amber-950">
-                  This resume has custom LaTeX edits. Saving the form will overwrite them.
-                </p>
-              )}
-              <Section title="Personal details" open>
-                <Field label="Full name" value={content.name} onChange={(v) => touch({ ...content, name: v })} placeholder="Jane Doe" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Phone" value={content.phone} onChange={(v) => touch({ ...content, phone: v })} placeholder="+1 123-456-7890" />
-                  <Field label="Email" value={content.email} onChange={(v) => touch({ ...content, email: v })} placeholder="jane@example.com" />
+                <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50/80 p-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+                  <span className="flex-1">
+                    This resume has custom LaTeX code. Editing the form will re-generate and overwrite raw edits.
+                  </span>
                 </div>
-                <Field label="Location" value={content.location} onChange={(v) => touch({ ...content, location: v })} placeholder="City, ST" />
+              )}
+
+              <Section title="Personal details" icon={<User className="h-3.5 w-3.5" />} open>
+                <Field
+                  label="Full name"
+                  value={content.name}
+                  onChange={(v) => touch({ ...content, name: v })}
+                  placeholder="Jane Doe"
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field
+                    label="Phone"
+                    value={content.phone}
+                    onChange={(v) => touch({ ...content, phone: v })}
+                    placeholder="+1 (555) 000-0000"
+                  />
+                  <Field
+                    label="Email"
+                    value={content.email}
+                    onChange={(v) => touch({ ...content, email: v })}
+                    placeholder="jane@example.com"
+                  />
+                </div>
+                <Field
+                  label="Location"
+                  value={content.location}
+                  onChange={(v) => touch({ ...content, location: v })}
+                  placeholder="San Francisco, CA"
+                />
               </Section>
 
-              <Section title="Professional summary">
-                <Area label="Summary (2–4 lines)" rows={5} value={content.summary} onChange={(v) => touch({ ...content, summary: v })} />
+              <Section title="Professional summary" icon={<Sparkles className="h-3.5 w-3.5" />}>
+                <Area
+                  label="Summary (2–4 punchy lines)"
+                  rows={4}
+                  value={content.summary}
+                  onChange={(v) => touch({ ...content, summary: v })}
+                  placeholder="Results-driven Software Engineer with 4+ years building high-throughput services..."
+                />
               </Section>
 
-              <Section title="Social links" count={content.links.length}>
+              <Section title="Social links" icon={<Globe className="h-3.5 w-3.5" />} count={content.links.length}>
                 <Entries
                   items={content.links}
                   onChange={(links) => touch({ ...content, links })}
                   blank={{ label: "", url: "" }}
-                  addLabel="Add link"
+                  addLabel="Add social link"
+                  titleFn={(l) => l.label || l.url || "New Link"}
                   render={(l, set) => (
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="Label" value={l.label} onChange={(v) => set({ ...l, label: v })} placeholder="GitHub" />
-                      <Field label="URL" value={l.url} onChange={(v) => set({ ...l, url: v })} placeholder="https://github.com/…" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field
+                        label="Platform / Label"
+                        value={l.label}
+                        onChange={(v) => set({ ...l, label: v })}
+                        placeholder="GitHub / LinkedIn"
+                      />
+                      <Field
+                        label="Profile URL"
+                        value={l.url}
+                        onChange={(v) => set({ ...l, url: v })}
+                        placeholder="https://…"
+                      />
                     </div>
                   )}
                 />
               </Section>
 
-              <Section title="Education" count={content.education.length} open>
+              <Section title="Education" icon={<GraduationCap className="h-3.5 w-3.5" />} count={content.education.length} open>
                 <Entries
                   items={content.education}
                   onChange={(education) => touch({ ...content, education })}
                   blank={{ school: "", degree: "", location: "", start: "", end: "", grade: "" }}
                   addLabel="Add education"
+                  titleFn={(e) => (e.school ? `${e.school}${e.degree ? ` • ${e.degree}` : ""}` : "New School")}
                   render={(e, set) => (
                     <>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Field label="School" value={e.school} onChange={(v) => set({ ...e, school: v })} />
-                        <Field label="Location" value={e.location} onChange={(v) => set({ ...e, location: v })} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Field label="School / University" value={e.school} onChange={(v) => set({ ...e, school: v })} placeholder="Stanford University" />
+                        <Field label="Location" value={e.location} onChange={(v) => set({ ...e, location: v })} placeholder="Stanford, CA" />
                       </div>
-                      <Field label="Degree" value={e.degree} onChange={(v) => set({ ...e, degree: v })} placeholder="B.S. in Computer Science" />
+                      <Field label="Degree / Major" value={e.degree} onChange={(v) => set({ ...e, degree: v })} placeholder="B.S. in Computer Science" />
                       <div className="grid grid-cols-3 gap-3">
-                        <Field label="Start" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="Aug 2021" />
-                        <Field label="End" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="May 2025" />
-                        <Field label="Grade" value={e.grade} onChange={(v) => set({ ...e, grade: v })} placeholder="3.8/4.0" />
+                        <Field label="Start" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="2021" />
+                        <Field label="End" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="2025" />
+                        <Field label="GPA / Grade" value={e.grade} onChange={(v) => set({ ...e, grade: v })} placeholder="3.9/4.0" />
                       </div>
                     </>
                   )}
                 />
               </Section>
 
-              <Section title="Work Experience" count={content.experience.length} open>
+              <Section title="Work Experience" icon={<Briefcase className="h-3.5 w-3.5" />} count={content.experience.length} open>
                 <Entries
                   items={content.experience}
                   onChange={(experience) => touch({ ...content, experience })}
                   blank={{ title: "", company: "", location: "", start: "", end: "", bullets: "" }}
-                  addLabel="Add experience"
+                  addLabel="Add work experience"
+                  titleFn={(exp) => (exp.company ? `${exp.title || "Role"} @ ${exp.company}` : "New Experience")}
                   render={(e, set) => (
                     <>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Field label="Title" value={e.title} onChange={(v) => set({ ...e, title: v })} />
-                        <Field label="Company" value={e.company} onChange={(v) => set({ ...e, company: v })} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Field label="Job Title" value={e.title} onChange={(v) => set({ ...e, title: v })} placeholder="Senior Software Engineer" />
+                        <Field label="Company" value={e.company} onChange={(v) => set({ ...e, company: v })} placeholder="Stripe" />
                       </div>
                       <div className="grid grid-cols-3 gap-3">
-                        <Field label="Location" value={e.location} onChange={(v) => set({ ...e, location: v })} />
-                        <Field label="Start" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="May 2024" />
-                        <Field label="End" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="Aug 2024" />
+                        <Field label="Location" value={e.location} onChange={(v) => set({ ...e, location: v })} placeholder="San Francisco, CA" />
+                        <Field label="Start Date" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="Jan 2023" />
+                        <Field label="End Date" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="Present" />
                       </div>
-                      <Area label="Bullets (one per line)" value={e.bullets} onChange={(v) => set({ ...e, bullets: v })} placeholder="Built …&#10;Shipped …" />
+                      <Area
+                        label="Key Achievements (one bullet per line)"
+                        rows={3}
+                        value={e.bullets}
+                        onChange={(v) => set({ ...e, bullets: v })}
+                        placeholder="Architected payment retry engine reducing failure rate by 14%&#10;Mentored 4 engineers and improved team test coverage to 92%"
+                      />
                     </>
                   )}
                 />
               </Section>
 
-              <Section title="Projects" count={content.projects.length}>
+              <Section title="Projects" icon={<FolderGit2 className="h-3.5 w-3.5" />} count={content.projects.length}>
                 <Entries
                   items={content.projects}
                   onChange={(projects) => touch({ ...content, projects })}
                   blank={{ name: "", tech: "", date: "", url: "", bullets: "" }}
                   addLabel="Add project"
+                  titleFn={(p) => p.name || "New Project"}
                   render={(p, set) => (
                     <>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Field label="Name" value={p.name} onChange={(v) => set({ ...p, name: v })} />
-                        <Field label="Tech" value={p.tech} onChange={(v) => set({ ...p, tech: v })} placeholder="TypeScript, Next.js" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Field label="Project Name" value={p.name} onChange={(v) => set({ ...p, name: v })} placeholder="Distributed Key-Value Store" />
+                        <Field label="Technologies Used" value={p.tech} onChange={(v) => set({ ...p, tech: v })} placeholder="Go, Raft, gRPC" />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <Field label="Date" value={p.date} onChange={(v) => set({ ...p, date: v })} placeholder="2024" />
-                        <Field label="Link URL" value={p.url} onChange={(v) => set({ ...p, url: v })} placeholder="https://github.com/…/…" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Field label="Date / Timeline" value={p.date} onChange={(v) => set({ ...p, date: v })} placeholder="Fall 2024" />
+                        <Field label="Repository / Demo URL" value={p.url} onChange={(v) => set({ ...p, url: v })} placeholder="https://github.com/…" />
                       </div>
-                      <Area label="Bullets (one per line)" value={p.bullets} onChange={(v) => set({ ...p, bullets: v })} />
+                      <Area
+                        label="Impact Bullets (one per line)"
+                        rows={2}
+                        value={p.bullets}
+                        onChange={(v) => set({ ...p, bullets: v })}
+                        placeholder="Achieved linearizable reads with leader leasing&#10;Handled 50k requests/sec benchmarked with k6"
+                      />
                     </>
                   )}
                 />
               </Section>
 
-              <Section title="Certificates" count={content.certificates.length}>
+              <Section title="Technical Skills" icon={<Wrench className="h-3.5 w-3.5" />} count={content.skills.length}>
+                <Entries
+                  items={content.skills}
+                  onChange={(skills) => touch({ ...content, skills })}
+                  blank={{ label: "", items: "" }}
+                  addLabel="Add skill category"
+                  titleFn={(s) => s.label || "Skill Category"}
+                  render={(s, set) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-[9rem_1fr] gap-3">
+                      <Field label="Category" value={s.label} onChange={(v) => set({ ...s, label: v })} placeholder="Languages" />
+                      <Field label="Skills (comma separated)" value={s.items} onChange={(v) => set({ ...s, items: v })} placeholder="TypeScript, Python, Go, Rust" />
+                    </div>
+                  )}
+                />
+              </Section>
+
+              <Section title="Certificates" icon={<Award className="h-3.5 w-3.5" />} count={content.certificates.length}>
                 <Entries
                   items={content.certificates}
                   onChange={(certificates) => touch({ ...content, certificates })}
                   blank={{ name: "", issuer: "", date: "" }}
                   addLabel="Add certificate"
+                  titleFn={(c) => c.name || "Certificate"}
                   render={(c, set) => (
-                    <div className="grid grid-cols-3 gap-3">
-                      <Field label="Name" value={c.name} onChange={(v) => set({ ...c, name: v })} />
-                      <Field label="Issuer" value={c.issuer} onChange={(v) => set({ ...c, issuer: v })} />
-                      <Field label="Date" value={c.date} onChange={(v) => set({ ...c, date: v })} />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <Field label="Certificate" value={c.name} onChange={(v) => set({ ...c, name: v })} placeholder="AWS Solutions Architect" />
+                      <Field label="Issuer" value={c.issuer} onChange={(v) => set({ ...c, issuer: v })} placeholder="Amazon Web Services" />
+                      <Field label="Date" value={c.date} onChange={(v) => set({ ...c, date: v })} placeholder="2024" />
                     </div>
                   )}
                 />
               </Section>
 
-              <Section title="Skills" count={content.skills.length}>
-                <Entries
-                  items={content.skills}
-                  onChange={(skills) => touch({ ...content, skills })}
-                  blank={{ label: "", items: "" }}
-                  addLabel="Add skill group"
-                  render={(s, set) => (
-                    <div className="grid grid-cols-[10rem_1fr] gap-3">
-                      <Field label="Group" value={s.label} onChange={(v) => set({ ...s, label: v })} placeholder="Languages" />
-                      <Field label="Items" value={s.items} onChange={(v) => set({ ...s, items: v })} placeholder="TypeScript, Python, Go" />
-                    </div>
-                  )}
-                />
-              </Section>
-
-              <Section title="Extra curricular" count={content.extra.length}>
+              <Section title="Extra curricular" icon={<Star className="h-3.5 w-3.5" />} count={content.extra.length}>
                 <Entries
                   items={content.extra}
                   onChange={(extra) => touch({ ...content, extra })}
                   blank={{ title: "", detail: "" }}
-                  addLabel="Add entry"
+                  addLabel="Add extra-curricular entry"
+                  titleFn={(x) => x.title || "Extra Activity"}
                   render={(x, set) => (
-                    <div className="grid grid-cols-[10rem_1fr] gap-3">
-                      <Field label="Title" value={x.title} onChange={(v) => set({ ...x, title: v })} />
-                      <Field label="Detail" value={x.detail} onChange={(v) => set({ ...x, detail: v })} />
+                    <div className="grid grid-cols-1 sm:grid-cols-[9rem_1fr] gap-3">
+                      <Field label="Title / Role" value={x.title} onChange={(v) => set({ ...x, title: v })} placeholder="Hackathon Lead" />
+                      <Field label="Description" value={x.detail} onChange={(v) => set({ ...x, detail: v })} placeholder="Organized 24h event with 400+ attendees" />
                     </div>
                   )}
                 />
               </Section>
             </>
           ) : (
-            <div className="flex min-h-64 flex-1 flex-col gap-2 md:min-h-0">
+            <div className="flex min-h-[30rem] flex-1 flex-col gap-2.5 md:min-h-0">
               {resume.customLatex && (
-                <div className="flex items-center gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs dark:bg-amber-950">
-                  <span className="flex-1">Custom LaTeX — the form no longer drives this resume.</span>
-                  <button onClick={() => void resetGenerated()} className="underline">
-                    Re-render from form
-                  </button>
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50/80 p-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                  <span>Custom LaTeX mode active. Edits in this editor drive the output.</span>
+                  <Btn variant="outline" size="xs" onClick={() => void resetGenerated()} className="gap-1 bg-white dark:bg-zinc-900">
+                    <RotateCcw className="h-3 w-3" />
+                    <span>Reset to form</span>
+                  </Btn>
                 </div>
               )}
               {!resume.customLatex && (
-                <p className="px-1 text-xs text-zinc-500">
-                  Generated from the form (read-only). Edit here to fork into custom LaTeX.
-                </p>
+                <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+                  <span>LaTeX compiled from form. Edits here will fork this resume into custom mode.</span>
+                </div>
               )}
-              <div className="min-h-64 flex-1 md:min-h-0">
+              <div className="min-h-64 flex-1 overflow-hidden rounded-2xl border border-border shadow-xs md:min-h-0">
                 <MonacoEditor
                   language="latex"
                   theme="vs-dark"
@@ -664,18 +871,21 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
             </div>
           )}
         </div>
-        <div className="relative min-h-96 bg-zinc-100 md:min-h-0 dark:bg-zinc-950">
-          <div className="absolute right-3 top-3 z-10">
+
+        {/* Right Pane: Live PDF Preview / ATS text */}
+        <div className="relative flex min-h-[36rem] flex-col bg-zinc-100/75 dark:bg-zinc-950 md:min-h-0">
+          <div className="absolute right-4 top-4 z-10">
             <Seg
               options={[
-                { value: "pdf", label: "PDF" },
-                { value: "ats", label: "ATS text" },
+                { value: "pdf", label: "Live PDF", icon: <Eye className="h-3 w-3" /> },
+                { value: "ats", label: "ATS Scanner", icon: <FileCheck className="h-3 w-3" /> },
               ]}
               value={rightPane}
               onChange={setRightPane}
             />
           </div>
-          <div className="h-full min-h-0">
+
+          <div className="h-full min-h-0 flex-1">
             {rightPane === "pdf" ? (
               <LatexPreview source={previewSource} onInfo={onInfo} />
             ) : (
@@ -686,4 +896,10 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
       </div>
     </main>
   );
+}
+
+export default function EditPage({ params }: { params: Promise<{ id: string }> }) {
+  const authConfigured = useAuthConfigured();
+  if (authConfigured === false) return <NeedKeys />;
+  return <EditInner params={params} />;
 }
