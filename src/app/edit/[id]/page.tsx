@@ -737,7 +737,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               variant={dirty ? "default" : "outline"}
               disabled={saving}
               onClick={() => void save()}
-              className="h-9 w-9 gap-1.5 rounded-full p-0 text-xs shadow-xs sm:w-auto sm:px-4"
+              className="h-9 w-9 shrink-0 gap-1.5 rounded-full p-0 text-xs shadow-xs sm:w-auto sm:px-4"
               title="Save"
             >
               <Save className="h-3.5 w-3.5" />
@@ -748,7 +748,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               size="sm"
               variant="outline"
               onClick={() => setShareOpen(true)}
-              className="h-9 w-9 gap-1.5 rounded-full p-0 text-xs shadow-xs sm:w-auto sm:px-4"
+              className="h-9 w-9 shrink-0 gap-1.5 rounded-full p-0 text-xs shadow-xs sm:w-auto sm:px-4"
               title="Share"
             >
               <Share2 className="h-3.5 w-3.5" />
@@ -779,18 +779,16 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
           <div className="flex shrink-0 items-center justify-between gap-2 px-6 py-3">
             {tab === "form" ? (
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setTemplateMenuOpen((o) => !o)}
-                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 bg-background px-3 text-xs text-foreground transition-colors cursor-pointer hover:bg-muted/50"
-                  title="Change Template Layout"
-                >
-                  <Layout className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="font-medium text-foreground truncate max-w-[130px]">
-                    {RESUME_TEMPLATES.find((t) => t.id === (content.template || "swe"))?.name || "Template"}
-                  </span>
-                  <ChevronDown className="h-3 w-3 opacity-60 shrink-0" />
-                </button>
+                <div className="flex h-9 items-center rounded-full bg-muted p-1">
+                  <button
+                    type="button"
+                    onClick={() => setTemplateMenuOpen((o) => !o)}
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-all hover:bg-background hover:text-foreground hover:shadow-sm"
+                    title={`Change template (current: ${RESUME_TEMPLATES.find((t) => t.id === (content.template || "swe"))?.name || "Template"})`}
+                  >
+                    <Layout className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 {templateMenuOpen && (
                   <>
                     <div
