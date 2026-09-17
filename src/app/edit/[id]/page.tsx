@@ -500,8 +500,9 @@ function ShareDialog({
 function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { data: session } = neonAuthClient.useSession();
+  const { data: session, isPending: sessionPending } = neonAuthClient.useSession();
   const user = session?.user;
+  const [signingIn, setSigningIn] = useState(false);
   const signOut = async () => {
     await neonAuthClient.signOut();
     router.refresh();
@@ -636,6 +637,13 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
+  if (sessionPending)
+    return (
+      <main className="flex min-h-screen items-center justify-center p-6 text-center">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
+      </main>
+    );
+
   if (!user)
     return (
       <main className="flex min-h-screen items-center justify-center p-6 text-center">
@@ -645,14 +653,17 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
           <p className="mt-1 text-sm text-muted-foreground">Your drafts stay private.</p>
           <Button
             className="mt-4"
-            onClick={() =>
+            disabled={signingIn}
+            onClick={() => {
+              if (signingIn) return;
+              setSigningIn(true);
               void neonAuthClient.signIn.social({
                 provider: "google",
                 callbackURL: `/edit/${id}`,
-              })
-            }
+              });
+            }}
           >
-            Sign in with Google
+            {signingIn ? "Redirecting to Google…" : "Sign in with Google"}
           </Button>
         </div>
       </main>

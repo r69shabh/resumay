@@ -41,7 +41,7 @@ import {
 import { SuggestionBox } from "@/components/SuggestionBox";
 import { SuggestionsModal } from "@/components/SuggestionsModal";
 import { ResumayLogo } from "@/components/ResumayLogo";
-import { LoginScreen } from "@/components/LoginScreen";
+import { AuthLoadingScreen, LoginScreen } from "@/components/LoginScreen";
 import ProfileMenu from "@/components/ProfileMenu";
 
 type Resume = {
@@ -283,7 +283,7 @@ export default function Home() {
 
 function HomeInner() {
   const router = useRouter();
-  const { data: session } = neonAuthClient.useSession();
+  const { data: session, isPending: sessionPending } = neonAuthClient.useSession();
   const user = session?.user;
 
   const [resumes, setResumes] = useState<Resume[] | null>(null);
@@ -397,6 +397,12 @@ function HomeInner() {
     const matchTag = (r.roleTag || "").toLowerCase().includes(q);
     return matchTitle || matchTag;
   });
+
+  // While the session cookie is being verified, show loading — never the
+  // login screen, so a logged-in user never sees a logged-out flash.
+  if (sessionPending) {
+    return <AuthLoadingScreen />;
+  }
 
   if (!user) {
     return <LoginScreen signInGoogle={signInGoogle} />;

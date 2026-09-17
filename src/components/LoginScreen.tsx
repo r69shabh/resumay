@@ -91,9 +91,21 @@ function ThemeToggleBtn() {
   );
 }
 
+export function AuthLoadingScreen() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background text-foreground">
+      <ResumayLogo size={40} />
+      <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
+    </div>
+  );
+}
+
 export function LoginScreen({ signInGoogle }: LoginScreenProps) {
   // Rotates public domain pastel art on every refresh
   const [artIndex, setArtIndex] = useState(0);
+  // Single-flight OAuth: a second tap starts a competing flow whose callback
+  // state overwrites the first, bouncing the user back to Google.
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     const rand = Math.floor(Math.random() * PASTEL_ARTWORKS.length);
@@ -151,11 +163,16 @@ export function LoginScreen({ signInGoogle }: LoginScreenProps) {
           <div className="space-y-3">
             <Button
               size="lg"
-              onClick={signInGoogle}
-              className="w-full h-12 text-sm font-semibold gap-3 shadow-xs hover:shadow-md transition-all border border-border bg-card text-card-foreground hover:bg-muted/80 cursor-pointer"
+              onClick={() => {
+                if (redirecting) return;
+                setRedirecting(true);
+                signInGoogle();
+              }}
+              disabled={redirecting}
+              className="w-full h-12 text-sm font-semibold gap-3 shadow-xs hover:shadow-md transition-all border border-border bg-card text-card-foreground hover:bg-muted/80 cursor-pointer disabled:opacity-70"
             >
               <GoogleIcon className="h-5 w-5" />
-              <span>Continue with Google</span>
+              <span>{redirecting ? "Redirecting to Google…" : "Continue with Google"}</span>
             </Button>
             <p className="text-[11px] text-center text-muted-foreground">
               Instant access • No password or credit card required
