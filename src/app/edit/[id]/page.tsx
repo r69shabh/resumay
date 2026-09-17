@@ -683,7 +683,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   return (
     <main className="flex h-screen flex-col bg-background">
       {/* Top Bar */}
-      <header className="flex h-16 w-full shrink-0 items-center justify-between gap-3 border-b border-border/40 bg-background px-6">
+      <header className="flex h-16 w-full shrink-0 items-center justify-between gap-2 border-b border-border/40 bg-background px-4 sm:gap-3 sm:px-6">
         {/* Left: Navigation & Document Meta */}
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Link
@@ -704,7 +704,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               markDirty();
             }}
             placeholder="Untitled resume"
-            className="h-9 min-w-0 max-w-[220px] rounded-lg px-2 text-sm font-semibold outline-none hover:bg-muted/50 focus:bg-muted/50 focus:ring-1 focus:ring-ring transition-colors truncate"
+            className="h-9 min-w-0 max-w-[130px] rounded-lg px-2 text-sm font-semibold outline-none hover:bg-muted/50 focus:bg-muted/50 focus:ring-1 focus:ring-ring transition-colors truncate sm:max-w-[220px]"
           />
 
           <TagInput
@@ -737,20 +737,22 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               variant={dirty ? "default" : "outline"}
               disabled={saving}
               onClick={() => void save()}
-              className="h-9 gap-1.5 rounded-full text-xs px-4 shadow-xs"
+              className="h-9 gap-1.5 rounded-full text-xs px-3 shadow-xs sm:px-4"
+              title="Save"
             >
               <Save className="h-3.5 w-3.5" />
-              <span>{saving ? "Saving…" : "Save"}</span>
+              <span className="hidden sm:inline">{saving ? "Saving…" : "Save"}</span>
             </Button>
 
             <Button
               size="sm"
               variant="outline"
               onClick={() => setShareOpen(true)}
-              className="h-9 gap-1.5 rounded-full text-xs px-4 shadow-xs"
+              className="h-9 gap-1.5 rounded-full text-xs px-3 shadow-xs sm:px-4"
+              title="Share"
             >
               <Share2 className="h-3.5 w-3.5" />
-              <span>Share</span>
+              <span className="hidden sm:inline">Share</span>
             </Button>
 
             {user && <ProfileMenu user={user} onSignOut={() => void signOut()} />}

@@ -210,6 +210,42 @@ function ResumePaperPreview({ resume }: { resume: Resume }) {
     return () => io.disconnect();
   }, []);
 
+  // Browser-cached bytes keyed by updatedAt: repeat visits never recompile.
+  // Stale renders are orphaned by the key change and pruned on each miss.
+  async function loadPdfBytes(): Promise<Uint8Array> {
+    const pdfUrl = `/api/resumes/${resume.id}/pdf`;
+    const cacheKey = `${pdfUrl}?updatedAt=${encodeURIComponent(resume.updatedAt)}`;
+    try {
+      if ("caches" in window) {
+        const hit = await (await caches.open("resume-thumbs")).match(cacheKey);
+        if (hit) return new Uint8Array(await hit.arrayBuffer());
+      }
+    } catch {
+      // cache unavailable: fetch live below
+    }
+    const res = await fetch(pdfUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = await res.arrayBuffer();
+    try {
+      if ("caches" in window) {
+        const cache = await caches.open("resume-thumbs");
+        await cache.put(
+          cacheKey,
+          new Response(buf.slice(0), { headers: { "Content-Type": "application/pdf" } }),
+        );
+        const keys = await cache.keys();
+        for (const k of keys) {
+          if (k.url.includes(`${pdfUrl}?`) && !k.url.endsWith(cacheKey)) {
+            await cache.delete(k);
+          }
+        }
+      }
+    } catch {
+      // caching is best-effort only
+    }
+    return new Uint8Array(buf);
+  }
+
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
@@ -218,7 +254,7 @@ function ResumePaperPreview({ resume }: { resume: Resume }) {
         try {
           const pdfjs = await import("pdfjs-dist");
           pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
-          const loadingTask = pdfjs.getDocument({ url: `/api/resumes/${resume.id}/pdf` });
+          const loadingTask = pdfjs.getDocument({ data: await loadPdfBytes() });
           const pdf = await loadingTask.promise;
           if (cancelled) return;
           const page = await pdf.getPage(1);
@@ -252,7 +288,8 @@ function ResumePaperPreview({ resume }: { resume: Resume }) {
     return () => {
       cancelled = true;
     };
-  }, [resume.id, visible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resume.id, resume.updatedAt, visible]);
 
   return (
     <div ref={boxRef} className="relative aspect-[8.5/11] w-full overflow-hidden rounded-lg border bg-white dark:bg-card shadow-xs transition-all duration-200 group-hover:border-foreground/40 group-hover:shadow-md select-none">
