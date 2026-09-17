@@ -495,6 +495,114 @@ function ShareDialog({
   );
 }
 
+// ─── Template switcher (icon circle matching the tab-switcher pills) ───────────
+
+function TemplateSwitcher({
+  templateId,
+  align,
+  onPick,
+}: {
+  templateId: string;
+  align: "left" | "right";
+  onPick: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current =
+    RESUME_TEMPLATES.find((t) => t.id === templateId)?.name || "Template";
+  return (
+    <div className="relative">
+      <div className="flex h-9 items-center rounded-full bg-muted p-1">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-all hover:bg-background hover:text-foreground hover:shadow-sm"
+          title={`Change template (current: ${current})`}
+        >
+          <Layout className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div
+            className={`absolute top-full z-50 mt-1 w-56 animate-in fade-in zoom-in-95 rounded-lg border bg-popover p-1 shadow-lg ${
+              align === "right" ? "right-0" : "left-0"
+            }`}
+          >
+            <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Switch Template
+            </div>
+            {RESUME_TEMPLATES.map((tmpl) => {
+              const isActive = templateId === tmpl.id;
+              return (
+                <button
+                  key={tmpl.id}
+                  type="button"
+                  onClick={() => {
+                    onPick(tmpl.id);
+                    setOpen(false);
+                    toast(`Switched to ${tmpl.name}`);
+                  }}
+                  className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs transition-colors cursor-pointer text-left ${
+                    isActive
+                      ? "bg-accent font-medium text-accent-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{tmpl.name}</div>
+                    <div className="text-[10px] text-muted-foreground font-normal truncate">
+                      {tmpl.layoutInfo.typography.split(" ")[0]} · {tmpl.layoutInfo.priority}
+                    </div>
+                  </div>
+                  {isActive && (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-foreground ml-2" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Mobile Form / LaTeX / Preview toggle (desktop uses the split instead) ────
+
+type MobileView = "form" | "latex" | "preview";
+
+function MobileViewToggle({
+  value,
+  onChange,
+}: {
+  value: MobileView;
+  onChange: (v: MobileView) => void;
+}) {
+  return (
+    <Tabs
+      value={value}
+      onValueChange={(v) => onChange(v as MobileView)}
+      className="md:hidden"
+    >
+      <TabsList className="h-9 rounded-full p-1 bg-muted">
+        <TabsTrigger value="form" className="h-7 rounded-full px-3 text-xs gap-1.5">
+          <SlidersHorizontal className="h-3 w-3" />
+          <span>Form</span>
+        </TabsTrigger>
+        <TabsTrigger value="latex" className="h-7 rounded-full px-3 text-xs gap-1.5">
+          <Code2 className="h-3 w-3" />
+          <span>LaTeX</span>
+        </TabsTrigger>
+        <TabsTrigger value="preview" className="h-7 rounded-full px-3 text-xs gap-1.5">
+          <Eye className="h-3 w-3" />
+          <span>Preview</span>
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
+}
+
 // ─── Main Editor ───────────────────────────────────────────────────────────────
 
 function EditInner({ params }: { params: Promise<{ id: string }> }) {
@@ -517,7 +625,6 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const [atsKey, setAtsKey] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState<PreviewInfo | null>(null);
@@ -556,6 +663,26 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
     setContent(c);
     setResume((r) => r && { ...r, customLatex: false });
     markDirty();
+  };
+
+  const pickTemplate = (id: string) => {
+    touch({
+      ...content,
+      template: id,
+      templateConfig: {
+        templateId: id,
+      },
+    });
+  };
+
+  const mobileValue: MobileView = mobileView === "preview" ? "preview" : tab;
+  const changeMobileView = (v: MobileView) => {
+    if (v === "preview") {
+      setMobileView("preview");
+    } else {
+      setMobileView("form");
+      setTab(v);
+    }
   };
 
   const previewSource = useMemo(
@@ -790,97 +917,16 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
           {/* Pane toolbar: editing controls sit with the content they affect */}
           <div className="flex shrink-0 items-center justify-between gap-2 px-6 py-3">
             {tab === "form" ? (
-              <div className="relative">
-                <div className="flex h-9 items-center rounded-full bg-muted p-1">
-                  <button
-                    type="button"
-                    onClick={() => setTemplateMenuOpen((o) => !o)}
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-all hover:bg-background hover:text-foreground hover:shadow-sm"
-                    title={`Change template (current: ${RESUME_TEMPLATES.find((t) => t.id === (content.template || "swe"))?.name || "Template"})`}
-                  >
-                    <Layout className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                {templateMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setTemplateMenuOpen(false)}
-                    />
-                    <div className="absolute left-0 top-full mt-1 w-56 rounded-lg border bg-popover p-1 shadow-lg z-50 animate-in fade-in zoom-in-95">
-                      <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                        Switch Template
-                      </div>
-                      {RESUME_TEMPLATES.map((tmpl) => {
-                        const isActive = (content.template || "swe") === tmpl.id;
-                        return (
-                          <button
-                            key={tmpl.id}
-                            type="button"
-                            onClick={() => {
-                              touch({
-                                ...content,
-                                template: tmpl.id,
-                                templateConfig: {
-                                  templateId: tmpl.id,
-                                },
-                              });
-                              setTemplateMenuOpen(false);
-                              toast(`Switched to ${tmpl.name}`);
-                            }}
-                            className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs transition-colors cursor-pointer text-left ${
-                              isActive
-                                ? "bg-accent font-medium text-accent-foreground"
-                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                            }`}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="truncate font-medium">{tmpl.name}</div>
-                              <div className="text-[10px] text-muted-foreground font-normal truncate">
-                                {tmpl.layoutInfo.typography.split(" ")[0]} · {tmpl.layoutInfo.priority}
-                              </div>
-                            </div>
-                            {isActive && (
-                              <Check className="h-3.5 w-3.5 shrink-0 text-foreground ml-2" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
+              <TemplateSwitcher
+                templateId={content.template || "swe"}
+                align="left"
+                onPick={pickTemplate}
+              />
             ) : (
               <span className="text-xs font-medium text-muted-foreground">LaTeX source</span>
             )}
             {/* Mobile: one Form / LaTeX / Preview toggle next to the template switcher */}
-            <Tabs
-              value={mobileView === "preview" ? "preview" : tab}
-              onValueChange={(v) => {
-                if (v === "preview") {
-                  setMobileView("preview");
-                } else {
-                  setMobileView("form");
-                  setTab(v as "form" | "latex");
-                }
-              }}
-              className="md:hidden"
-            >
-              <TabsList className="h-9 rounded-full p-1 bg-muted">
-                <TabsTrigger value="form" className="h-7 rounded-full px-3 text-xs gap-1.5">
-                  <SlidersHorizontal className="h-3 w-3" />
-                  <span>Form</span>
-                </TabsTrigger>
-                <TabsTrigger value="latex" className="h-7 rounded-full px-3 text-xs gap-1.5">
-                  <Code2 className="h-3 w-3" />
-                  <span>LaTeX</span>
-                </TabsTrigger>
-                <TabsTrigger value="preview" className="h-7 rounded-full px-3 text-xs gap-1.5">
-                  <Eye className="h-3 w-3" />
-                  <span>Preview</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <MobileViewToggle value={mobileValue} onChange={changeMobileView} />
             {/* Desktop: split is always visible, so only Form / LaTeX */}
             <Tabs value={tab} onValueChange={(v) => setTab(v as "form" | "latex")} className="hidden md:flex">
               <TabsList className="h-9 rounded-full p-1 bg-muted">
@@ -1109,7 +1155,20 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
         {/* Right: PDF or ATS preview */}
         <div className={`${mobileView === "form" ? "hidden md:flex" : "flex"} min-h-[36rem] flex-col bg-muted/30 md:min-h-0`}>
           <div className="flex shrink-0 items-center justify-between gap-2 px-6 py-3">
-            <span className="text-xs font-medium text-muted-foreground">Preview</span>
+            {/* Mobile mirrors the form side so the toggle is never stranded */}
+            <div className="contents md:hidden">
+              {tab === "form" ? (
+                <TemplateSwitcher
+                  templateId={content.template || "swe"}
+                  align="right"
+                  onPick={pickTemplate}
+                />
+              ) : (
+                <span className="text-xs font-medium text-muted-foreground">LaTeX source</span>
+              )}
+              <MobileViewToggle value={mobileValue} onChange={changeMobileView} />
+            </div>
+            <span className="hidden text-xs font-medium text-muted-foreground md:block">Preview</span>
             {/* Desktop only: no ATS view on phones */}
             <Tabs value={rightPane} onValueChange={(v) => setRightPane(v as "pdf" | "ats")} className="hidden md:flex">
               <TabsList className="h-9 rounded-full p-1 bg-muted">
