@@ -625,6 +625,18 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
     return () => window.removeEventListener("beforeunload", onUnload);
   }, [dirty]);
 
+  // Phones get PDF only: pin the preview pane so a desktop ATS state never
+  // leaks through a resize/rotation.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => {
+      if (!mq.matches) setRightPane("pdf");
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   const resetGenerated = () => {
     if (!confirm("Discard raw LaTeX edits and re-render from form?")) return;
     touch(content);
@@ -1098,7 +1110,8 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
         <div className={`${mobileView === "form" ? "hidden md:flex" : "flex"} min-h-[36rem] flex-col bg-muted/30 md:min-h-0`}>
           <div className="flex shrink-0 items-center justify-between gap-2 px-6 py-3">
             <span className="text-xs font-medium text-muted-foreground">Preview</span>
-            <Tabs value={rightPane} onValueChange={(v) => setRightPane(v as "pdf" | "ats")}>
+            {/* Desktop only: no ATS view on phones */}
+            <Tabs value={rightPane} onValueChange={(v) => setRightPane(v as "pdf" | "ats")} className="hidden md:flex">
               <TabsList className="h-9 rounded-full p-1 bg-muted">
                 <TabsTrigger value="pdf" className="h-7 rounded-full px-3 text-xs gap-1.5">
                   <Eye className="h-3 w-3" />
