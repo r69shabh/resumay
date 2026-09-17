@@ -45,6 +45,7 @@ export type TemplateConfig = {
   headerLayout?: "center" | "left" | "split";
   headerSubtitle?: string;
   sectionOrder?: ResumeSectionId[];
+  accent?: string;
 };
 
 export type ResumeContent = {
@@ -72,10 +73,12 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
     headerLayout: "center" | "left" | "split";
     sectionOrder: ResumeSectionId[];
     headerSubtitle: string;
+    accent: string;
   }
 > = {
   swe: {
     templateId: "swe",
+    accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
     sectionOrder: ["experience", "projects", "skills", "education", "certificates", "extra"],
@@ -83,6 +86,7 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   },
   fullstack: {
     templateId: "fullstack",
+    accent: "1D4ED8",
     fontFamily: "sans",
     headerLayout: "left",
     sectionOrder: ["summary", "experience", "projects", "skills", "education", "certificates", "extra"],
@@ -90,6 +94,7 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   },
   aiml: {
     templateId: "aiml",
+    accent: "0E7490",
     fontFamily: "sans",
     headerLayout: "left",
     sectionOrder: ["summary", "skills", "experience", "projects", "education", "extra", "certificates"],
@@ -97,6 +102,7 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   },
   pm: {
     templateId: "pm",
+    accent: "6D28D9",
     fontFamily: "sans",
     headerLayout: "left",
     sectionOrder: ["summary", "skills", "experience", "projects", "education", "certificates", "extra"],
@@ -104,6 +110,7 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   },
   finance: {
     templateId: "finance",
+    accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
     sectionOrder: ["education", "experience", "skills", "certificates", "extra", "projects"],
@@ -111,6 +118,7 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   },
   consulting: {
     templateId: "consulting",
+    accent: "334155",
     fontFamily: "sans",
     headerLayout: "left",
     sectionOrder: ["summary", "experience", "education", "skills", "certificates", "extra"],
@@ -118,6 +126,7 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   },
   newgrad: {
     templateId: "newgrad",
+    accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
     sectionOrder: ["education", "projects", "experience", "skills", "extra", "certificates"],
@@ -125,6 +134,7 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   },
   compact: {
     templateId: "compact",
+    accent: "047857",
     fontFamily: "sans",
     headerLayout: "split",
     sectionOrder: ["skills", "experience", "projects", "education", "certificates", "extra"],
@@ -132,6 +142,7 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   },
   blank: {
     templateId: "blank",
+    accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
     sectionOrder: ["education", "experience", "projects", "skills", "certificates", "extra"],
@@ -145,6 +156,7 @@ export function getResolvedTemplateConfig(c: ResumeContent): {
   headerLayout: "center" | "left" | "split";
   sectionOrder: ResumeSectionId[];
   headerSubtitle: string;
+  accent: string;
 } {
   const tid = c.template || c.templateConfig?.templateId || "swe";
   const def = DEFAULT_TEMPLATE_CONFIGS[tid] || DEFAULT_TEMPLATE_CONFIGS.swe;
@@ -152,6 +164,7 @@ export function getResolvedTemplateConfig(c: ResumeContent): {
     templateId: tid,
     fontFamily: c.templateConfig?.fontFamily || def.fontFamily,
     headerLayout: c.templateConfig?.headerLayout || def.headerLayout,
+    accent: c.templateConfig?.accent || def.accent || "000000",
     headerSubtitle:
       c.templateConfig?.headerSubtitle !== undefined
         ? c.templateConfig.headerSubtitle
@@ -311,11 +324,19 @@ export function renderLatex(c: ResumeContent): string {
   const nameStr = escapeLatex(c.name.trim() || "Your Name");
   const subStr = config.headerSubtitle ? escapeLatex(config.headerSubtitle) : "";
 
+  // Per-template accent as rgb triple for the stock `color` package
+  // (no xcolor dependency, so the offline serverless bundle is untouched).
+  const accentHex = /^[0-9a-fA-F]{6}$/.test(config.accent) ? config.accent : "000000";
+  const accentRgb = [0, 2, 4]
+    .map((i) => (parseInt(accentHex.slice(i, i + 2), 16) / 255).toFixed(3))
+    .join(",");
+  const nameColored = `{\\color{accent}${nameStr}}`;
+
   // Dynamic Header layout
   let heading = "";
   if (config.headerLayout === "left") {
     heading = `\\begin{flushleft}
-  {\\Huge\\bfseries ${nameStr}}${subStr ? ` \\\\ \\vspace{1pt}{\\small\\textit{${subStr}}}` : ""} \\\\ \\vspace{2pt}
+  {\\Huge\\bfseries ${nameColored}}${subStr ? ` \\\\ \\vspace{1pt}{\\small\\textit{${subStr}}}` : ""} \\\\ \\vspace{2pt}
   \\small ${contact.join(" $|$ ")}
 \\end{flushleft}
 \\vspace{-4pt}
@@ -327,7 +348,7 @@ export function renderLatex(c: ResumeContent): string {
     heading = `\\noindent
 \\begin{tabular*}{\\textwidth}{l@{\\extracolsep{\\fill}}r}
   \\begin{tabular}[b]{@{}l@{}}
-    {\\Huge\\bfseries ${nameStr}} \\\\
+    {\\Huge\\bfseries ${nameColored}} \\\\
     ${subStr ? `\\textit{\\small ${subStr}} \\\\` : ""}
   \\end{tabular}
   &
@@ -341,7 +362,7 @@ export function renderLatex(c: ResumeContent): string {
   } else {
     // Default: centered classic Jake's style
     heading = `\\begin{center}
-  \\textbf{\\Huge \\scshape ${nameStr}} \\\\ \\vspace{1pt}
+  \\textbf{\\Huge \\scshape ${nameColored}} \\\\ \\vspace{1pt}
   \\small ${contact.join(" $|$ ")}
 \\end{center}
 `;
@@ -477,10 +498,10 @@ export function renderLatex(c: ResumeContent): string {
     config.fontFamily === "sans"
       ? `\\titleformat{\\section}{
   \\vspace{-4pt}\\bfseries\\raggedright\\large
-}{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]`
+}{}{0em}{}[\\color{accent}\\titlerule \\vspace{-5pt}]`
       : `\\titleformat{\\section}{
   \\vspace{-4pt}\\scshape\\raggedright\\large
-}{}{0em}{}[\\color{black}\\titlerule \\vspace{-5pt}]`;
+}{}{0em}{}[\\color{accent}\\titlerule \\vspace{-5pt}]`;
 
   const fontPkg =
     config.fontFamily === "sans"
@@ -500,6 +521,7 @@ export function renderLatex(c: ResumeContent): string {
 \\usepackage{enumitem}
 \\usepackage{tabularx}
 \\usepackage[usenames,dvipsnames]{color}
+\\definecolor{accent}{rgb}{${accentRgb}}
 ${fontPkg}
 
 \\pagestyle{fancy}
