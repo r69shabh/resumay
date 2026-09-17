@@ -512,6 +512,8 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const [raw, setRaw] = useState("");
   const [tab, setTab] = useState<"form" | "latex">("form");
   const [rightPane, setRightPane] = useState<"pdf" | "ats">("pdf");
+  // Mobile shows one pane at a time (form first); desktop shows the split.
+  const [mobileView, setMobileView] = useState<"form" | "preview">("form");
   const [atsKey, setAtsKey] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -767,10 +769,26 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
         />
       )}
 
+      {/* Mobile: form / preview switcher (desktop shows the split) */}
+      <div className="flex shrink-0 items-center justify-center px-4 py-2 md:hidden">
+        <Tabs value={mobileView} onValueChange={(v) => setMobileView(v as "form" | "preview")}>
+          <TabsList className="h-9 rounded-full p-1 bg-muted">
+            <TabsTrigger value="form" className="h-7 rounded-full px-4 text-xs gap-1.5">
+              <SlidersHorizontal className="h-3 w-3" />
+              <span>Form</span>
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="h-7 rounded-full px-4 text-xs gap-1.5">
+              <Eye className="h-3 w-3" />
+              <span>Preview</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
       {/* Two-pane layout */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto md:grid-cols-2 md:overflow-hidden">
         {/* Left: Form or LaTeX editor */}
-        <div className="flex h-full min-h-0 flex-col bg-muted/30">
+        <div className={`${mobileView === "preview" ? "hidden md:flex" : "flex"} h-full min-h-0 flex-col bg-muted/30`}>
           {/* Pane toolbar: editing controls sit with the content they affect */}
           <div className="flex shrink-0 items-center justify-between gap-2 px-6 py-3">
             {tab === "form" ? (
@@ -1064,7 +1082,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
         </div>
 
         {/* Right: PDF or ATS preview */}
-        <div className="flex min-h-[36rem] flex-col bg-muted/30 md:min-h-0">
+        <div className={`${mobileView === "form" ? "hidden md:flex" : "flex"} min-h-[36rem] flex-col bg-muted/30 md:min-h-0`}>
           <div className="flex shrink-0 items-center justify-between gap-2 px-6 py-3">
             <span className="text-xs font-medium text-muted-foreground">Preview</span>
             <Tabs value={rightPane} onValueChange={(v) => setRightPane(v as "pdf" | "ats")}>

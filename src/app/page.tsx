@@ -182,37 +182,69 @@ function ResumeTemplateSheet({ tmpl }: { tmpl: ResumeTemplate }) {
 
 function ResumePaperPreview({ resume }: { resume: Resume }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  // Only compile when the card scrolls near the viewport: the server compiles
+  // 2 resumes at a time, so firing all thumbnails at once starves some into
+  // timeouts ("Preview unavailable").
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
+    if (!visible) return;
     let cancelled = false;
     (async () => {
-      try {
-        const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
-        const loadingTask = pdfjs.getDocument({ url: `/api/resumes/${resume.id}/pdf` });
-        const pdf = await loadingTask.promise;
-        if (cancelled) return;
-        const page = await pdf.getPage(1);
-        if (cancelled) return;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const pdfjs = await import("pdfjs-dist");
+          pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
+          const loadingTask = pdfjs.getDocument({ url: `/api/resumes/${resume.id}/pdf` });
+          const pdf = await loadingTask.promise;
+          if (cancelled) return;
+          const page = await pdf.getPage(1);
+          if (cancelled) return;
 
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+          const canvas = canvasRef.current;
+          if (!canvas) return;
 
-        // Render at sharp scale for thumbnail
-        const viewport = page.getViewport({ scale: 1.2 });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+          // Render at sharp scale for thumbnail
+          const viewport = page.getViewport({ scale: 1.2 });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
 
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
 
-        await (page as any).render({ canvasContext: ctx, viewport, canvas }).promise;
-        if (!cancelled) setLoaded(true);
-      } catch (e) {
-        if (!cancelled) {
-          setError(true);
+          await (page as any).render({ canvasContext: ctx, viewport, canvas }).promise;
+          if (!cancelled) setLoaded(true);
+          return;
+        } catch (e) {
+          if (cancelled) return;
+          if (attempt === 0) {
+            await new Promise((r) => setTimeout(r, 1500));
+          } else {
+            setError(true);
+          }
         }
       }
     })();
@@ -220,10 +252,10 @@ function ResumePaperPreview({ resume }: { resume: Resume }) {
     return () => {
       cancelled = true;
     };
-  }, [resume.id]);
+  }, [resume.id, visible]);
 
   return (
-    <div className="relative aspect-[8.5/11] w-full overflow-hidden rounded-lg border bg-white dark:bg-card shadow-xs transition-all duration-200 group-hover:border-foreground/40 group-hover:shadow-md select-none">
+    <div ref={boxRef} className="relative aspect-[8.5/11] w-full overflow-hidden rounded-lg border bg-white dark:bg-card shadow-xs transition-all duration-200 group-hover:border-foreground/40 group-hover:shadow-md select-none">
       {/* Live PDF Canvas */}
       <canvas
         ref={canvasRef}
@@ -521,7 +553,7 @@ function HomeInner() {
                 )}
 
                 {/* Grid of Cards */}
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 sm:gap-6">
                   {/* Card 1: New Resume Card (Same size box with plus icon) */}
                   <div
                     onClick={() => !creating && setTemplateModalOpen(true)}
@@ -700,38 +732,42 @@ function HomeInner() {
           </div>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="text-muted-foreground/80">Follow me on</span>
+            <span className="hidden text-muted-foreground/80 sm:inline">Follow me on</span>
             <a
               href="https://x.com/r69shabh"
               target="_blank"
               rel="noopener noreferrer"
+              title="X (@r69shabh)"
               className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-foreground/80 transition-colors"
             >
-              <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 fill-current sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
-              <span>X (@r69shabh)</span>
+              <span className="hidden sm:inline">X (@r69shabh)</span>
             </a>
-            <span className="text-border">•</span>
+            <span className="hidden text-border sm:inline">•</span>
             <a
               href="https://github.com/r69shabh"
               target="_blank"
               rel="noopener noreferrer"
+              title="GitHub"
               className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-foreground/80 transition-colors"
             >
-              <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 fill-current sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24">
                 <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
               </svg>
-              <span>GitHub</span>
+              <span className="hidden sm:inline">GitHub</span>
             </a>
-            <span className="text-border">•</span>
+            <span className="hidden text-border sm:inline">•</span>
             <a
               href="https://buymeacoffee.com/r69shabh"
               target="_blank"
               rel="noopener noreferrer"
+              title="Buy me a coffee"
               className="inline-flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400 hover:underline transition-colors"
             >
-              <span>☕ Buy me a coffee</span>
+              <span className="text-base leading-none sm:text-xs">☕</span>
+              <span className="hidden sm:inline">Buy me a coffee</span>
             </a>
           </div>
         </div>
