@@ -2,12 +2,15 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import ProfileMenu from "@/components/ProfileMenu";
 import {
   Suspense,
   use,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -29,6 +32,7 @@ import {
   type ResumeSectionId,
 } from "@/lib/resume";
 import { RESUME_TEMPLATES } from "@/lib/templates-data";
+import { downloadFileName } from "@/lib/utils";
 import {
   ArrowLeft,
   Save,
@@ -59,8 +63,6 @@ import {
   Sparkles,
   Tag,
   Layout,
-  Sun,
-  Moon,
 } from "lucide-react";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -74,40 +76,6 @@ type Resume = {
   content: unknown;
   customLatex: boolean;
 };
-
-// ─── Theme Toggle Switch ──────────────────────────────────────────────────────
-
-function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const isDark =
-      localStorage.getItem("theme") === "dark" ||
-      (!("theme" in localStorage) &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-    setDark(isDark);
-    document.documentElement.classList.toggle("dark", isDark);
-  }, []);
-
-  const toggle = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-  };
-
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={toggle}
-      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-      title={dark ? "Switch to light mode" : "Switch to dark mode"}
-    >
-      {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-    </Button>
-  );
-}
 
 // ─── Small form helpers ────────────────────────────────────────────────────────
 
@@ -162,6 +130,83 @@ function Area({
   );
 }
 
+// ─── Multi-tag input: comma or Enter commits a new tag chip ────────────────────
+
+function TagInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const tags = value
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const [draft, setDraft] = useState("");
+
+  const commit = (text: string) => {
+    const parts = text
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (parts.length) onChange([...tags, ...parts].join(", "));
+  };
+
+  return (
+    <div className="hidden max-w-[240px] items-center gap-1 overflow-hidden rounded-full border border-dashed px-3 h-9 text-xs text-muted-foreground hover:border-border transition-colors sm:flex">
+      <Tag className="h-3 w-3 shrink-0" />
+      {tags.map((t, i) => (
+        <span
+          key={`${t}-${i}`}
+          className="inline-flex max-w-[72px] shrink-0 items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[11px] text-foreground"
+        >
+          <span className="truncate">{t}</span>
+          <button
+            type="button"
+            onClick={() =>
+              onChange(tags.filter((x) => x !== t).join(", "))
+            }
+            className="text-muted-foreground hover:text-foreground"
+            title={`Remove ${t}`}
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </span>
+      ))}
+      <input
+        value={draft}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v.includes(",")) {
+            commit(v);
+            setDraft("");
+          } else {
+            setDraft(v);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && draft.trim()) {
+            e.preventDefault();
+            commit(draft);
+            setDraft("");
+          } else if (e.key === "Backspace" && !draft && tags.length) {
+            onChange(tags.slice(0, -1).join(", "));
+          }
+        }}
+        onBlur={() => {
+          if (draft.trim()) {
+            commit(draft);
+            setDraft("");
+          }
+        }}
+        placeholder={tags.length ? "" : "Add tag"}
+        className="w-16 min-w-0 flex-1 bg-transparent outline-none text-xs text-foreground placeholder:text-muted-foreground/60"
+      />
+    </div>
+  );
+}
+
 // ─── Accordion Section ─────────────────────────────────────────────────────────
 
 function Section({
@@ -170,20 +215,24 @@ function Section({
   count,
   children,
   open: defaultOpen = false,
+  onSave,
+  saving,
 }: {
   title: string;
   icon?: ReactNode;
   count?: number;
   children: ReactNode;
   open?: boolean;
+  onSave?: () => void;
+  saving?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-lg border bg-card shrink-0">
+    <div className="rounded-xl border bg-card shadow-xs shrink-0">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium select-none hover:bg-accent transition-colors text-left rounded-lg"
+        className="flex w-full cursor-pointer items-center gap-3 px-5 py-6 text-base font-medium select-none hover:bg-accent transition-colors text-left rounded-lg"
       >
         {icon && <span className="text-muted-foreground">{icon}</span>}
         <span className="flex-1">{title}</span>
@@ -197,7 +246,22 @@ function Section({
         />
       </button>
       {open && (
-        <div className="flex flex-col gap-4 border-t px-4 py-4">{children}</div>
+        <div className="flex flex-col gap-4 border-t border-border/40 px-5 py-5">
+          {children}
+          {onSave && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={saving}
+              onClick={onSave}
+              className="h-8 gap-1.5 self-end text-xs"
+            >
+              <Save className="h-3.5 w-3.5" />
+              {saving ? "Saving…" : `Save ${title}`}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -353,12 +417,14 @@ function AtsPanel({ id, stale }: { id: string; stale: boolean }) {
 
 function ShareDialog({
   slug,
+  title,
   shareHref,
   pdfUrl,
   onDownloadTex,
   onClose,
 }: {
   slug: string;
+  title: string;
   shareHref: string;
   pdfUrl: string | null;
   onDownloadTex: () => void;
@@ -410,7 +476,7 @@ function ShareDialog({
             Open page
           </Link>
           {pdfUrl && (
-            <a href={pdfUrl} download={`${slug}.pdf`} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border bg-card px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
+            <a href={pdfUrl} download={downloadFileName(title, slug, "pdf")} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border bg-card px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
               <Download className="h-3.5 w-3.5" />
               Download PDF
             </a>
@@ -433,8 +499,13 @@ function ShareDialog({
 
 function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const { data: session } = neonAuthClient.useSession();
   const user = session?.user;
+  const signOut = async () => {
+    await neonAuthClient.signOut();
+    router.refresh();
+  };
   const [resume, setResume] = useState<Resume | null>(null);
   const [content, setContent] = useState<ResumeContent>(defaultContent());
   const [raw, setRaw] = useState("");
@@ -447,60 +518,82 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const [saveMsg, setSaveMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState<PreviewInfo | null>(null);
+  const revision = useRef(0);
+  const saveInFlight = useRef(false);
   const onInfo = useCallback((i: PreviewInfo) => setInfo(i), []);
 
   const resolvedConfig = useMemo(() => getResolvedTemplateConfig(content), [content]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
+    let active = true;
     fetch(`/api/resumes/${id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((r: Resume | null) => {
+        if (!active) return;
         if (!r) return setSaveMsg("Resume not found.");
-        setResume(r);
+        setResume({ ...r, customLatex: r.customLatex || r.content == null });
         setRaw(r.latexSource);
         if (r.content != null) setContent(parseContent(r.content));
         if (r.content == null || r.customLatex) setTab("latex");
+      })
+      .catch(() => {
+        if (active) setSaveMsg("Unable to load resume. Please reload.");
       });
-  }, [id, user]);
+    return () => { active = false; };
+  }, [id, user?.id]);
+
+  const markDirty = () => {
+    revision.current += 1;
+    setDirty(true);
+    setSaveMsg("");
+  };
 
   const touch = (c: ResumeContent) => {
     setContent(c);
-    setDirty(true);
+    setResume((r) => r && { ...r, customLatex: false });
+    markDirty();
   };
 
   const previewSource = useMemo(
-    () => (tab === "form" && resume && !resume.customLatex ? renderLatex(content) : raw),
-    [tab, content, raw, resume],
+    () => (resume?.customLatex ? raw : renderLatex(content)),
+    [content, raw, resume?.customLatex],
   );
 
-  const save = useCallback(async () => {
-    if (!resume) return;
+  const save = useCallback(async (automatic = false) => {
+    if (!resume || saveInFlight.current) return;
+    const savedRevision = revision.current;
+    const payload = resume.customLatex
+      ? { title: resume.title, roleTag: resume.roleTag, latexSource: raw }
+      : { title: resume.title, roleTag: resume.roleTag, content };
+    saveInFlight.current = true;
     setSaving(true);
     setSaveMsg("Saving…");
-    const body =
-      tab === "form"
-        ? { title: resume.title, roleTag: resume.roleTag, content }
-        : { title: resume.title, roleTag: resume.roleTag, latexSource: raw };
-    const res = await fetch(`/api/resumes/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setSaving(false);
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/resumes/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Save failed");
       const r: Resume = await res.json();
-      setResume(r);
-      setRaw(r.latexSource);
-      setDirty(false);
+      if (revision.current === savedRevision) {
+        setResume(r);
+        setDirty(false);
+        setSaveMsg(`Saved at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+        if (!automatic) toast("Saved");
+      } else {
+        setSaveMsg("");
+      }
       setAtsKey((k) => k + 1);
-      setSaveMsg(`Saved at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
-      toast("Saved");
-    } else {
-      setSaveMsg("Save failed");
-      toast("Save failed");
+    } catch {
+      setSaveMsg("Save failed — retry with Save");
+      if (!automatic) toast("Save failed");
+    } finally {
+      saveInFlight.current = false;
+      setSaving(false);
     }
-  }, [id, resume, content, raw, tab]);
+  }, [id, resume, content, raw]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -513,28 +606,32 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [save]);
 
-  const resetGenerated = async () => {
+  useEffect(() => {
+    if (!dirty || saving || saveMsg.startsWith("Save failed")) return;
+    const t = setTimeout(() => void save(true), 2000);
+    return () => clearTimeout(t);
+  }, [dirty, saving, saveMsg, save]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const onUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, [dirty]);
+
+  const resetGenerated = () => {
     if (!confirm("Discard raw LaTeX edits and re-render from form?")) return;
-    const res = await fetch(`/api/resumes/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ useGenerated: true }),
-    });
-    if (res.ok) {
-      const r: Resume = await res.json();
-      setResume(r);
-      setRaw(r.latexSource);
-      setDirty(false);
-      setSaveMsg("Re-rendered from form");
-      toast("Re-rendered from form");
-    }
+    touch(content);
   };
 
   const downloadTex = () => {
     const url = URL.createObjectURL(new Blob([previewSource], { type: "application/x-tex" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${resume?.slug ?? "resume"}.tex`;
+    a.download = downloadFileName(resume?.title ?? "", resume?.slug ?? "resume", "tex");
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
@@ -573,127 +670,41 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   return (
     <main className="flex h-screen flex-col bg-background">
       {/* Top Bar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-4 gap-4">
+      <header className="flex h-16 w-full shrink-0 items-center justify-between gap-3 border-b border-border/40 bg-background px-6">
         {/* Left: Navigation & Document Meta */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <Link
             href="/"
             title="Back to dashboard"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+            onClick={(event) => {
+              if (dirty && !confirm("Changes are not saved yet. Leave anyway?")) event.preventDefault();
+            }}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
-
-          <div className="h-4 w-px bg-border shrink-0" />
 
           <input
             value={resume.title}
             onChange={(e) => {
               setResume({ ...resume, title: e.target.value });
-              setDirty(true);
+              markDirty();
             }}
             placeholder="Untitled resume"
-            className="h-8 min-w-0 max-w-xs rounded-md px-2 text-sm font-semibold outline-none hover:bg-muted/50 focus:bg-muted/50 focus:ring-1 focus:ring-ring transition-colors truncate"
+            className="h-9 min-w-0 max-w-[220px] rounded-lg px-2 text-sm font-semibold outline-none hover:bg-muted/50 focus:bg-muted/50 focus:ring-1 focus:ring-ring transition-colors truncate"
           />
 
-          <div className="hidden items-center gap-1 rounded-md border border-dashed px-2 h-7 text-xs text-muted-foreground hover:border-border transition-colors sm:flex">
-            <Tag className="h-3 w-3 shrink-0" />
-            <input
-              value={resume.roleTag}
-              onChange={(e) => {
-                setResume({ ...resume, roleTag: e.target.value });
-                setDirty(true);
-              }}
-              placeholder="Add tag"
-              className="w-16 bg-transparent outline-none text-xs text-foreground placeholder:text-muted-foreground/60"
-            />
-          </div>
+          <TagInput
+            value={resume.roleTag}
+            onChange={(v) => {
+              setResume({ ...resume, roleTag: v });
+              markDirty();
+            }}
+          />
         </div>
 
-        {/* Right: Controls, Status & Actions */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          {/* Template Layout Switcher */}
-          {tab === "form" && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setTemplateMenuOpen((o) => !o)}
-                className="inline-flex items-center gap-1.5 h-8 rounded-md border border-border/80 bg-background hover:bg-muted/50 px-2.5 text-xs text-foreground transition-colors cursor-pointer"
-                title="Change Template Layout"
-              >
-                <Layout className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="font-medium text-foreground truncate max-w-[130px]">
-                  {RESUME_TEMPLATES.find((t) => t.id === (content.template || "swe"))?.name || "Template"}
-                </span>
-                <ChevronDown className="h-3 w-3 opacity-60 shrink-0" />
-              </button>
-              {templateMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setTemplateMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border bg-popover p-1 shadow-lg z-50 animate-in fade-in zoom-in-95">
-                    <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      Switch Template
-                    </div>
-                    {RESUME_TEMPLATES.map((tmpl) => {
-                      const isActive = (content.template || "swe") === tmpl.id;
-                      return (
-                        <button
-                          key={tmpl.id}
-                          type="button"
-                          onClick={() => {
-                            touch({
-                              ...content,
-                              template: tmpl.id,
-                              templateConfig: {
-                                templateId: tmpl.id,
-                              },
-                            });
-                            setTemplateMenuOpen(false);
-                            toast(`Switched to ${tmpl.name}`);
-                          }}
-                          className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs transition-colors cursor-pointer text-left ${
-                            isActive
-                              ? "bg-accent font-medium text-accent-foreground"
-                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium">{tmpl.name}</div>
-                            <div className="text-[10px] text-muted-foreground font-normal truncate">
-                              {tmpl.layoutInfo.typography.split(" ")[0]} · {tmpl.layoutInfo.priority}
-                            </div>
-                          </div>
-                          {isActive && (
-                            <Check className="h-3.5 w-3.5 shrink-0 text-foreground ml-2" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Form / LaTeX Switcher */}
-          <Tabs value={tab} onValueChange={(v) => setTab(v as "form" | "latex")}>
-            <TabsList className="h-8 p-0.5 bg-muted">
-              <TabsTrigger value="form" className="h-7 px-2.5 text-xs gap-1.5">
-                <SlidersHorizontal className="h-3 w-3" />
-                <span>Form</span>
-              </TabsTrigger>
-              <TabsTrigger value="latex" className="h-7 px-2.5 text-xs gap-1.5">
-                <Code2 className="h-3 w-3" />
-                <span>LaTeX</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          <div className="hidden h-4 w-px bg-border sm:block" />
-
+        {/* Right: Status & Actions */}
+        <div className="flex shrink-0 items-center gap-3">
           {/* Save status */}
           <div className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
             <span
@@ -702,20 +713,18 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               }`}
             />
             <span className="text-xs">
-              {dirty ? "Unsaved" : saveMsg || "Saved"}
+              {saving ? "Saving…" : saveMsg || (dirty ? "Unsaved" : "Saved")}
             </span>
           </div>
 
-          <div className="hidden h-4 w-px bg-border sm:block" />
-
           {/* Action buttons */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant={dirty ? "default" : "outline"}
               disabled={saving}
               onClick={() => void save()}
-              className="h-8 gap-1.5 text-xs px-3 shadow-xs"
+              className="h-9 gap-1.5 rounded-full text-xs px-4 shadow-xs"
             >
               <Save className="h-3.5 w-3.5" />
               <span>{saving ? "Saving…" : "Save"}</span>
@@ -725,13 +734,13 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               size="sm"
               variant="outline"
               onClick={() => setShareOpen(true)}
-              className="h-8 gap-1.5 text-xs px-3 shadow-xs"
+              className="h-9 gap-1.5 rounded-full text-xs px-4 shadow-xs"
             >
               <Share2 className="h-3.5 w-3.5" />
               <span>Share</span>
             </Button>
 
-            <ThemeToggle />
+            {user && <ProfileMenu user={user} onSignOut={() => void signOut()} />}
           </div>
         </div>
       </header>
@@ -739,6 +748,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
       {shareOpen && (
         <ShareDialog
           slug={resume.slug}
+          title={resume.title}
           shareHref={`${typeof window !== "undefined" ? window.location.origin : ""}${sharePath}`}
           pdfUrl={info?.pdfUrl ?? null}
           onDownloadTex={downloadTex}
@@ -749,9 +759,91 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
       {/* Two-pane layout */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto md:grid-cols-2 md:overflow-hidden">
         {/* Left: Form or LaTeX editor */}
-        <div className="h-full min-h-0 overflow-y-auto border-r p-4">
+        <div className="flex h-full min-h-0 flex-col bg-muted/30">
+          {/* Pane toolbar: editing controls sit with the content they affect */}
+          <div className="flex shrink-0 items-center justify-between gap-2 px-6 py-3">
+            {tab === "form" ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setTemplateMenuOpen((o) => !o)}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 bg-background px-3 text-xs text-foreground transition-colors cursor-pointer hover:bg-muted/50"
+                  title="Change Template Layout"
+                >
+                  <Layout className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="font-medium text-foreground truncate max-w-[130px]">
+                    {RESUME_TEMPLATES.find((t) => t.id === (content.template || "swe"))?.name || "Template"}
+                  </span>
+                  <ChevronDown className="h-3 w-3 opacity-60 shrink-0" />
+                </button>
+                {templateMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setTemplateMenuOpen(false)}
+                    />
+                    <div className="absolute left-0 top-full mt-1 w-56 rounded-lg border bg-popover p-1 shadow-lg z-50 animate-in fade-in zoom-in-95">
+                      <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        Switch Template
+                      </div>
+                      {RESUME_TEMPLATES.map((tmpl) => {
+                        const isActive = (content.template || "swe") === tmpl.id;
+                        return (
+                          <button
+                            key={tmpl.id}
+                            type="button"
+                            onClick={() => {
+                              touch({
+                                ...content,
+                                template: tmpl.id,
+                                templateConfig: {
+                                  templateId: tmpl.id,
+                                },
+                              });
+                              setTemplateMenuOpen(false);
+                              toast(`Switched to ${tmpl.name}`);
+                            }}
+                            className={`flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-xs transition-colors cursor-pointer text-left ${
+                              isActive
+                                ? "bg-accent font-medium text-accent-foreground"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate font-medium">{tmpl.name}</div>
+                              <div className="text-[10px] text-muted-foreground font-normal truncate">
+                                {tmpl.layoutInfo.typography.split(" ")[0]} · {tmpl.layoutInfo.priority}
+                              </div>
+                            </div>
+                            {isActive && (
+                              <Check className="h-3.5 w-3.5 shrink-0 text-foreground ml-2" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <span className="text-xs font-medium text-muted-foreground">LaTeX source</span>
+            )}
+            <Tabs value={tab} onValueChange={(v) => setTab(v as "form" | "latex")}>
+              <TabsList className="h-9 rounded-full p-1 bg-muted">
+                <TabsTrigger value="form" className="h-7 rounded-full px-3 text-xs gap-1.5">
+                  <SlidersHorizontal className="h-3 w-3" />
+                  <span>Form</span>
+                </TabsTrigger>
+                <TabsTrigger value="latex" className="h-7 rounded-full px-3 text-xs gap-1.5">
+                  <Code2 className="h-3 w-3" />
+                  <span>LaTeX</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {tab === "form" ? (
-            <div className="space-y-4 pb-12">
+            <div className="space-y-5 pb-12">
               {resume.customLatex && (
                 <div className="flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <span className="flex items-center gap-1.5">
@@ -761,7 +853,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 </div>
               )}
 
-              <Section title="Personal details" icon={<User className="h-3.5 w-3.5" />} open>
+              <Section title="Personal details" icon={<User className="h-3.5 w-3.5" />} onSave={() => void save()} saving={saving}>
                 <Field label="Full name" value={content.name} onChange={(v) => touch({ ...content, name: v })} placeholder="Jane Doe" />
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Phone" value={content.phone} onChange={(v) => touch({ ...content, phone: v })} placeholder="+1 555 000-0000" />
@@ -774,14 +866,14 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               {resolvedConfig.sectionOrder.map((secId) => {
                 if (secId === "summary") {
                   return (
-                    <Section key="summary" title="Professional summary" icon={<Sparkles className="h-3.5 w-3.5" />}>
+                    <Section key="summary" title="Professional summary" icon={<Sparkles className="h-3.5 w-3.5" />} onSave={() => void save()} saving={saving}>
                       <Area label="Summary" rows={4} value={content.summary} onChange={(v) => touch({ ...content, summary: v })} placeholder="Results-driven engineer…" />
                     </Section>
                   );
                 }
                 if (secId === "experience") {
                   return (
-                    <Section key="experience" title="Work Experience" icon={<Briefcase className="h-3.5 w-3.5" />} count={content.experience.length} open>
+                    <Section key="experience" title="Work Experience" icon={<Briefcase className="h-3.5 w-3.5" />} count={content.experience.length} onSave={() => void save()} saving={saving}>
                       <Entries
                         items={content.experience}
                         onChange={(experience) => touch({ ...content, experience })}
@@ -808,7 +900,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "projects") {
                   return (
-                    <Section key="projects" title="Projects" icon={<FolderGit2 className="h-3.5 w-3.5" />} count={content.projects.length}>
+                    <Section key="projects" title="Projects" icon={<FolderGit2 className="h-3.5 w-3.5" />} count={content.projects.length} onSave={() => void save()} saving={saving}>
                       <Entries
                         items={content.projects}
                         onChange={(projects) => touch({ ...content, projects })}
@@ -834,7 +926,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "skills") {
                   return (
-                    <Section key="skills" title="Technical Skills" icon={<Wrench className="h-3.5 w-3.5" />} count={content.skills.length}>
+                    <Section key="skills" title="Skills" icon={<Wrench className="h-3.5 w-3.5" />} count={content.skills.length} onSave={() => void save()} saving={saving}>
                       <Entries
                         items={content.skills}
                         onChange={(skills) => touch({ ...content, skills })}
@@ -853,7 +945,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "education") {
                   return (
-                    <Section key="education" title="Education" icon={<GraduationCap className="h-3.5 w-3.5" />} count={content.education.length} open>
+                    <Section key="education" title="Education" icon={<GraduationCap className="h-3.5 w-3.5" />} count={content.education.length} onSave={() => void save()} saving={saving}>
                       <Entries
                         items={content.education}
                         onChange={(education) => touch({ ...content, education })}
@@ -880,7 +972,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "certificates") {
                   return (
-                    <Section key="certificates" title="Certificates" icon={<Award className="h-3.5 w-3.5" />} count={content.certificates.length}>
+                    <Section key="certificates" title="Certificates" icon={<Award className="h-3.5 w-3.5" />} count={content.certificates.length} onSave={() => void save()} saving={saving}>
                       <Entries
                         items={content.certificates}
                         onChange={(certificates) => touch({ ...content, certificates })}
@@ -900,7 +992,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "extra") {
                   return (
-                    <Section key="extra" title="Extra-curricular" icon={<Star className="h-3.5 w-3.5" />} count={content.extra.length}>
+                    <Section key="extra" title="Extra-curricular" icon={<Star className="h-3.5 w-3.5" />} count={content.extra.length} onSave={() => void save()} saving={saving}>
                       <Entries
                         items={content.extra}
                         onChange={(extra) => touch({ ...content, extra })}
@@ -940,10 +1032,12 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 <MonacoEditor
                   language="latex"
                   theme="vs-dark"
-                  value={raw}
+                  value={previewSource}
                   onChange={(v) => {
-                    setRaw(v ?? "");
-                    setDirty(true);
+                    if (v === undefined || v === previewSource) return;
+                    setRaw(v);
+                    setResume({ ...resume, customLatex: true });
+                    markDirty();
                   }}
                   options={{
                     minimap: { enabled: false },
@@ -955,18 +1049,20 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               </div>
             </div>
           )}
+          </div>
         </div>
 
-        {/* Right: PDF or ATS */}
-        <div className="relative flex min-h-[36rem] flex-col bg-muted/30 md:min-h-0">
-          <div className="absolute right-3 top-3 z-10">
+        {/* Right: PDF or ATS preview */}
+        <div className="flex min-h-[36rem] flex-col bg-muted/30 md:min-h-0">
+          <div className="flex shrink-0 items-center justify-between gap-2 px-6 py-3">
+            <span className="text-xs font-medium text-muted-foreground">Preview</span>
             <Tabs value={rightPane} onValueChange={(v) => setRightPane(v as "pdf" | "ats")}>
-              <TabsList>
-                <TabsTrigger value="pdf" className="text-xs gap-1">
+              <TabsList className="h-9 rounded-full p-1 bg-muted">
+                <TabsTrigger value="pdf" className="h-7 rounded-full px-3 text-xs gap-1.5">
                   <Eye className="h-3 w-3" />
                   PDF
                 </TabsTrigger>
-                <TabsTrigger value="ats" className="text-xs gap-1">
+                <TabsTrigger value="ats" className="h-7 rounded-full px-3 text-xs gap-1.5">
                   <FileCheck className="h-3 w-3" />
                   ATS
                 </TabsTrigger>

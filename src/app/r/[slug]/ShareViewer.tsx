@@ -8,6 +8,7 @@ import { ResumayLogo } from "@/components/ResumayLogo";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/Toaster";
+import { downloadFileName } from "@/lib/utils";
 import {
   FileText,
   Eye,
@@ -87,7 +88,7 @@ export default function ShareViewer({
     const url = URL.createObjectURL(new Blob([latexSource], { type: "application/x-tex" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${slug}.tex`;
+    a.download = downloadFileName(title, slug, "tex");
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
@@ -141,7 +142,7 @@ export default function ShareViewer({
           {pdfUrl && (
             <a
               href={pdfUrl}
-              download={`${slug}.pdf`}
+              download={downloadFileName(title, slug, "pdf")}
               className="inline-flex h-9 items-center gap-1 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               <Download className="h-3.5 w-3.5" />

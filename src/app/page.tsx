@@ -21,14 +21,11 @@ import {
   Link2,
   Copy,
   Trash2,
-  LogOut,
   Clock,
   ArrowRight,
   Search,
   X,
   Tag,
-  Sun,
-  Moon,
   ExternalLink,
   MoreVertical,
   Check,
@@ -45,6 +42,7 @@ import { SuggestionBox } from "@/components/SuggestionBox";
 import { SuggestionsModal } from "@/components/SuggestionsModal";
 import { ResumayLogo } from "@/components/ResumayLogo";
 import { LoginScreen } from "@/components/LoginScreen";
+import ProfileMenu from "@/components/ProfileMenu";
 
 type Resume = {
   id: string;
@@ -180,38 +178,6 @@ function ResumeTemplateSheet({ tmpl }: { tmpl: ResumeTemplate }) {
 
 // ─── Theme Toggle Switch ──────────────────────────────────────────────────────
 
-function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const isDark =
-      localStorage.getItem("theme") === "dark" ||
-      (!("theme" in localStorage) &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-    setDark(isDark);
-    document.documentElement.classList.toggle("dark", isDark);
-  }, []);
-
-  const toggle = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-  };
-
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={toggle}
-      className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
-      title={dark ? "Switch to light mode" : "Switch to dark mode"}
-    >
-      {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-    </Button>
-  );
-}
-
 // ─── Live PDF Canvas Thumbnail ────────────────────────────────────────────────
 
 function ResumePaperPreview({ resume }: { resume: Resume }) {
@@ -324,7 +290,6 @@ function HomeInner() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [creating, setCreating] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [deleteModalResume, setDeleteModalResume] = useState<Resume | null>(null);
   const [shareModalResume, setShareModalResume] = useState<Resume | null>(null);
@@ -424,13 +389,6 @@ function HomeInner() {
     }
   };
 
-  // Google profile photo extraction
-  const userPhoto =
-    (user as Record<string, unknown>)?.image as string ||
-    (user as Record<string, unknown>)?.picture as string ||
-    (user as Record<string, unknown>)?.avatar_url as string ||
-    null;
-
   // Unified search: filters both by resume title or role tag
   const filteredResumes = (resumes ?? []).filter((r) => {
     if (!searchQuery.trim()) return true;
@@ -477,7 +435,7 @@ function HomeInner() {
           )}
         </div>
 
-        {/* Right Corner: Suggestions + Dark/Light Mode Switch + Profile Icon */}
+        {/* Right Corner: Suggestions + Profile Menu */}
         <div className="flex items-center gap-2 shrink-0">
           <Button
             variant="outline"
@@ -490,66 +448,23 @@ function HomeInner() {
             <span className="hidden sm:inline">Suggestions</span>
           </Button>
 
-          <ThemeToggle />
-
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setProfileOpen((o) => !o)}
-              className="flex h-9 w-9 items-center justify-center rounded-full ring-1 ring-border overflow-hidden hover:ring-2 hover:ring-ring transition-all cursor-pointer"
-              title={user.email}
-            >
-              {userPhoto ? (
-                <img
-                  src={userPhoto}
-                  alt={user.name || user.email || "Profile"}
-                  className="h-full w-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-muted text-xs font-semibold uppercase text-foreground">
-                  {user.name?.[0] || user.email?.[0] || "U"}
-                </div>
-              )}
-            </button>
-
-            {/* Profile Dropdown */}
-            {profileOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setProfileOpen(false)}
-                />
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-lg z-50 animate-in fade-in zoom-in-95">
-                  <div className="px-2.5 py-2 border-b mb-1">
-                    {user.name && (
-                      <p className="text-xs font-semibold truncate">{user.name}</p>
-                    )}
-                    <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      setSuggestionsOpen(true);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
-                  >
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    <span>View suggestions</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void signOut()}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer border-t mt-1 pt-1.5"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Sign out</span>
-                  </button>
-                </div>
-              </>
+          <ProfileMenu
+            user={user}
+            onSignOut={() => void signOut()}
+            menuExtras={(close) => (
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  setSuggestionsOpen(true);
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span>View suggestions</span>
+              </button>
             )}
-          </div>
+          />
         </div>
       </header>
 
@@ -645,13 +560,20 @@ function HomeInner() {
                           </Link>
 
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            {/* Role Tag aligned with inside editor style */}
-                            {r.roleTag && (
-                              <div className="inline-flex items-center gap-1 rounded-md border border-dashed px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                <Tag className="h-2.5 w-2.5 shrink-0" />
-                                <span className="truncate max-w-[80px]">{r.roleTag}</span>
-                              </div>
-                            )}
+                            {/* Role Tags aligned with inside editor style */}
+                            {r.roleTag
+                              .split(",")
+                              .map((t) => t.trim())
+                              .filter(Boolean)
+                              .map((t, i) => (
+                                <div
+                                  key={`${t}-${i}`}
+                                  className="inline-flex items-center gap-1 rounded-md border border-dashed px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                                >
+                                  <Tag className="h-2.5 w-2.5 shrink-0" />
+                                  <span className="truncate max-w-[80px]">{t}</span>
+                                </div>
+                              ))}
 
                             {/* Date */}
                             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
