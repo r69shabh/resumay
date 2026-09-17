@@ -737,7 +737,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               variant={dirty ? "default" : "outline"}
               disabled={saving}
               onClick={() => void save()}
-              className="h-9 gap-1.5 rounded-full text-xs px-3 shadow-xs sm:px-4"
+              className="h-9 w-9 gap-1.5 rounded-full p-0 text-xs shadow-xs sm:w-auto sm:px-4"
               title="Save"
             >
               <Save className="h-3.5 w-3.5" />
@@ -748,7 +748,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               size="sm"
               variant="outline"
               onClick={() => setShareOpen(true)}
-              className="h-9 gap-1.5 rounded-full text-xs px-3 shadow-xs sm:px-4"
+              className="h-9 w-9 gap-1.5 rounded-full p-0 text-xs shadow-xs sm:w-auto sm:px-4"
               title="Share"
             >
               <Share2 className="h-3.5 w-3.5" />
@@ -770,22 +770,6 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
           onClose={() => setShareOpen(false)}
         />
       )}
-
-      {/* Mobile: form / preview switcher (desktop shows the split) */}
-      <div className="flex shrink-0 items-center justify-center px-4 py-2 md:hidden">
-        <Tabs value={mobileView} onValueChange={(v) => setMobileView(v as "form" | "preview")}>
-          <TabsList className="h-9 rounded-full p-1 bg-muted">
-            <TabsTrigger value="form" className="h-7 rounded-full px-4 text-xs gap-1.5">
-              <SlidersHorizontal className="h-3 w-3" />
-              <span>Form</span>
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="h-7 rounded-full px-4 text-xs gap-1.5">
-              <Eye className="h-3 w-3" />
-              <span>Preview</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
 
       {/* Two-pane layout */}
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto md:grid-cols-2 md:overflow-hidden">
@@ -859,7 +843,36 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
             ) : (
               <span className="text-xs font-medium text-muted-foreground">LaTeX source</span>
             )}
-            <Tabs value={tab} onValueChange={(v) => setTab(v as "form" | "latex")}>
+            {/* Mobile: one Form / LaTeX / Preview toggle next to the template switcher */}
+            <Tabs
+              value={mobileView === "preview" ? "preview" : tab}
+              onValueChange={(v) => {
+                if (v === "preview") {
+                  setMobileView("preview");
+                } else {
+                  setMobileView("form");
+                  setTab(v as "form" | "latex");
+                }
+              }}
+              className="md:hidden"
+            >
+              <TabsList className="h-9 rounded-full p-1 bg-muted">
+                <TabsTrigger value="form" className="h-7 rounded-full px-3 text-xs gap-1.5">
+                  <SlidersHorizontal className="h-3 w-3" />
+                  <span>Form</span>
+                </TabsTrigger>
+                <TabsTrigger value="latex" className="h-7 rounded-full px-3 text-xs gap-1.5">
+                  <Code2 className="h-3 w-3" />
+                  <span>LaTeX</span>
+                </TabsTrigger>
+                <TabsTrigger value="preview" className="h-7 rounded-full px-3 text-xs gap-1.5">
+                  <Eye className="h-3 w-3" />
+                  <span>Preview</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {/* Desktop: split is always visible, so only Form / LaTeX */}
+            <Tabs value={tab} onValueChange={(v) => setTab(v as "form" | "latex")} className="hidden md:flex">
               <TabsList className="h-9 rounded-full p-1 bg-muted">
                 <TabsTrigger value="form" className="h-7 rounded-full px-3 text-xs gap-1.5">
                   <SlidersHorizontal className="h-3 w-3" />
