@@ -27,12 +27,14 @@ import {
   defaultContent,
   parseContent,
   renderLatex,
+  renderPlainText,
   getResolvedTemplateConfig,
   type ResumeContent,
   type ResumeSectionId,
 } from "@/lib/resume";
 import { RESUME_TEMPLATES } from "@/lib/templates-data";
 import { downloadFileName } from "@/lib/utils";
+import JdMatchModal from "@/components/JdMatchModal";
 import {
   ArrowLeft,
   Save,
@@ -58,9 +60,11 @@ import {
   Wrench,
   Star,
   FileText,
+  FileJson,
   AlertCircle,
   SlidersHorizontal,
   Sparkles,
+  Target,
   Tag,
   Layout,
 } from "lucide-react";
@@ -341,13 +345,16 @@ function AtsBody({
   promise,
   onRefresh,
   stale,
+  resumeText,
 }: {
   promise: Promise<AtsResult>;
   onRefresh: () => void;
   stale: boolean;
+  resumeText: string;
 }) {
   const result = use(promise);
   const [copied, setCopied] = useState(false);
+  const [jdOpen, setJdOpen] = useState(false);
 
   const copy = async () => {
     if (!result.text) return;
@@ -372,6 +379,10 @@ function AtsBody({
           {stale && <span className="text-yellow-600 dark:text-yellow-400">• Unsaved edits</span>}
         </div>
         <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => setJdOpen(true)}>
+            <Target className="h-3 w-3" />
+            JD match
+          </Button>
           <Button variant="outline" size="sm" onClick={() => void copy()} disabled={!result.text}>
             {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             {copied ? "Copied" : "Copy"}
@@ -394,11 +405,15 @@ function AtsBody({
           {result.text}
         </pre>
       )}
+
+      {jdOpen && (
+        <JdMatchModal resumeText={resumeText} onClose={() => setJdOpen(false)} />
+      )}
     </div>
   );
 }
 
-function AtsPanel({ id, stale }: { id: string; stale: boolean }) {
+function AtsPanel({ id, stale, resumeText }: { id: string; stale: boolean; resumeText: string }) {
   const [promise, setPromise] = useState<Promise<AtsResult>>(() => loadText(id));
   return (
     <Suspense
@@ -408,7 +423,7 @@ function AtsPanel({ id, stale }: { id: string; stale: boolean }) {
         </div>
       }
     >
-      <AtsBody promise={promise} onRefresh={() => setPromise(loadText(id))} stale={stale} />
+      <AtsBody promise={promise} onRefresh={() => setPromise(loadText(id))} stale={stale} resumeText={resumeText} />
     </Suspense>
   );
 }
@@ -418,6 +433,7 @@ function AtsPanel({ id, stale }: { id: string; stale: boolean }) {
 function ShareDialog({
   slug,
   title,
+  content,
   shareHref,
   pdfUrl,
   onDownloadTex,
@@ -425,6 +441,7 @@ function ShareDialog({
 }: {
   slug: string;
   title: string;
+  content: ResumeContent;
   shareHref: string;
   pdfUrl: string | null;
   onDownloadTex: () => void;
@@ -484,6 +501,38 @@ function ShareDialog({
           <Button variant="outline" size="sm" onClick={onDownloadTex}>
             <Code2 className="h-3.5 w-3.5" />
             Download .tex
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const url = URL.createObjectURL(
+                new Blob(
+                  [
+                    JSON.stringify(
+                      {
+                        app: "resumay",
+                        exportedAt: new Date().toISOString(),
+                        title,
+                        slug,
+                        content,
+                      },
+                      null,
+                      2,
+                    ),
+                  ],
+                  { type: "application/json" },
+                ),
+              );
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = downloadFileName(title, slug, "json");
+              a.click();
+              setTimeout(() => URL.revokeObjectURL(url), 5000);
+            }}
+          >
+            <FileJson className="h-3.5 w-3.5" />
+            Download .json
           </Button>
           <Link href={`/r/${slug}/text`} target="_blank" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
             <FileText className="h-3.5 w-3.5" />
@@ -603,6 +652,63 @@ function MobileViewToggle({
   );
 }
 
+// ─── One-page fit assistant: badge + tighten + cut hint ─────────────────────────
+
+function FitAssistant({
+  pages,
+  busy,
+  failed,
+  density,
+  content,
+  onTighten,
+}: {
+  pages: number | null;
+  busy: boolean;
+  failed: boolean;
+  density: "comfortable" | "compact";
+  content: ResumeContent;
+  onTighten: () => void;
+}) {
+  if (pages == null || failed) return null;
+  const over = pages > 1;
+  const countBullets = (s: string) =>
+    s
+      .split("\n")
+      .map((l) => l.trim().replace(/^[-•*]\s*/, "").trim())
+      .filter(Boolean).length;
+  const exp = content.experience.reduce((n, e) => n + countBullets(e.bullets), 0);
+  const proj = content.projects.reduce((n, p) => n + countBullets(p.bullets), 0);
+  const target = exp >= proj ? { name: "experience", n: exp } : { name: "projects", n: proj };
+  return (
+    <span className="hidden items-center gap-1.5 sm:flex">
+      <span
+        className={`text-[11px] ${
+          over ? "font-medium text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+        }`}
+      >
+        {pages === 1 ? "1 page" : `${pages} pages`}
+      </span>
+      {over && !busy && density === "comfortable" && (
+        <button
+          type="button"
+          onClick={onTighten}
+          className="rounded-full border px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-accent cursor-pointer"
+        >
+          Tighten to fit
+        </button>
+      )}
+      {over && !busy && density === "compact" && target.n > 0 && (
+        <span
+          className="max-w-[220px] truncate text-[11px] text-muted-foreground"
+          title="Spacing is already tight — remove your lowest-value bullets"
+        >
+          Trim {target.name} ({target.n} bullets)
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ─── Main Editor ───────────────────────────────────────────────────────────────
 
 function EditInner({ params }: { params: Promise<{ id: string }> }) {
@@ -670,6 +776,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
       ...content,
       template: id,
       templateConfig: {
+        ...content.templateConfig,
         templateId: id,
       },
     });
@@ -903,6 +1010,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
         <ShareDialog
           slug={resume.slug}
           title={resume.title}
+          content={content}
           shareHref={`${typeof window !== "undefined" ? window.location.origin : ""}${sharePath}`}
           pdfUrl={info?.pdfUrl ?? null}
           onDownloadTex={downloadTex}
@@ -1169,6 +1277,24 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               <MobileViewToggle value={mobileValue} onChange={changeMobileView} />
             </div>
             <span className="hidden text-xs font-medium text-muted-foreground md:block">Preview</span>
+            <FitAssistant
+              pages={info?.pages ?? null}
+              busy={info?.busy ?? false}
+              failed={info?.failed ?? false}
+              density={resolvedConfig.density}
+              content={content}
+              onTighten={() => {
+                touch({
+                  ...content,
+                  templateConfig: {
+                    ...content.templateConfig,
+                    templateId: resolvedConfig.templateId,
+                    density: "compact",
+                  },
+                });
+                toast("Tightened spacing — recompiling");
+              }}
+            />
             {/* Desktop only: no ATS view on phones */}
             <Tabs value={rightPane} onValueChange={(v) => setRightPane(v as "pdf" | "ats")} className="hidden md:flex">
               <TabsList className="h-9 rounded-full p-1 bg-muted">
@@ -1188,7 +1314,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
             {rightPane === "pdf" ? (
               <LatexPreview source={previewSource} onInfo={onInfo} />
             ) : (
-              <AtsPanel key={atsKey} id={id} stale={dirty} />
+              <AtsPanel key={atsKey} id={id} stale={dirty} resumeText={renderPlainText(content)} />
             )}
           </div>
         </div>

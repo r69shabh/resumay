@@ -46,6 +46,7 @@ export type TemplateConfig = {
   headerSubtitle?: string;
   sectionOrder?: ResumeSectionId[];
   accent?: string;
+  density?: "comfortable" | "compact";
 };
 
 export type ResumeContent = {
@@ -157,6 +158,7 @@ export function getResolvedTemplateConfig(c: ResumeContent): {
   sectionOrder: ResumeSectionId[];
   headerSubtitle: string;
   accent: string;
+  density: "comfortable" | "compact";
 } {
   const tid = c.template || c.templateConfig?.templateId || "swe";
   const def = DEFAULT_TEMPLATE_CONFIGS[tid] || DEFAULT_TEMPLATE_CONFIGS.swe;
@@ -165,6 +167,7 @@ export function getResolvedTemplateConfig(c: ResumeContent): {
     fontFamily: c.templateConfig?.fontFamily || def.fontFamily,
     headerLayout: c.templateConfig?.headerLayout || def.headerLayout,
     accent: c.templateConfig?.accent || def.accent || "000000",
+    density: c.templateConfig?.density || "comfortable",
     headerSubtitle:
       c.templateConfig?.headerSubtitle !== undefined
         ? c.templateConfig.headerSubtitle
@@ -475,8 +478,15 @@ export function renderLatex(c: ResumeContent): string {
     }
   }
 
+  // Compact density reuses the compact template's tighter page box.
+  const tightBox = config.templateId === "compact" || config.density === "compact";
+  const secPad = config.density === "compact" ? "-6pt" : "-4pt";
+  const itemPad = config.density === "compact" ? "-3pt" : "-2pt";
+  const listPad = config.density === "compact" ? "-7pt" : "-5pt";
+  const subPad = config.density === "compact" ? "-9pt" : "-7pt";
+
   const marginSetup =
-    config.templateId === "compact"
+    tightBox
       ? `\\addtolength{\\oddsidemargin}{-0.6in}
 \\addtolength{\\evensidemargin}{-0.6in}
 \\addtolength{\\textwidth}{1.2in}
@@ -497,10 +507,10 @@ export function renderLatex(c: ResumeContent): string {
   const titleFormat =
     config.fontFamily === "sans"
       ? `\\titleformat{\\section}{
-  \\vspace{-4pt}\\bfseries\\raggedright\\large
+  \\vspace{${secPad}}\\bfseries\\raggedright\\large
 }{}{0em}{}[\\color{accent}\\titlerule \\vspace{-5pt}]`
       : `\\titleformat{\\section}{
-  \\vspace{-4pt}\\scshape\\raggedright\\large
+  \\vspace{${secPad}}\\scshape\\raggedright\\large
 }{}{0em}{}[\\color{accent}\\titlerule \\vspace{-5pt}]`;
 
   const fontPkg =
@@ -536,18 +546,18 @@ ${marginSetup}
 
 ${titleFormat}
 
-\\newcommand{\\resumeItem}[1]{\\item\\small{{#1 \\vspace{-2pt}}}}
+\\newcommand{\\resumeItem}[1]{\\item\\small{{#1 \\vspace{${itemPad}}}}}
 \\newcommand{\\resumeSubheading}[4]{
   \\vspace{-2pt}\\item
   \\begin{tabular*}{0.97\\textwidth}[t]{l@{\\extracolsep{\\fill}}r}
     \\textbf{#1} & #2 \\\\
     \\textit{\\small#3} & \\textit{\\small #4} \\\\
-  \\end{tabular*}\\vspace{-7pt}
+  \\end{tabular*}\\vspace{${subPad}}
 }
 \\newcommand{\\resumeSubHeadingListStart}{\\begin{itemize}[leftmargin=0.15in, label={}]}
 \\newcommand{\\resumeSubHeadingListEnd}{\\end{itemize}}
 \\newcommand{\\resumeItemListStart}{\\begin{itemize}}
-\\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{-5pt}}
+\\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{${listPad}}}
 
 \\begin{document}
 

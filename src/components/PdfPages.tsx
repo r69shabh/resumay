@@ -14,7 +14,7 @@ type PdfDoc = { numPages: number; getPage: (n: number) => Promise<PdfPage> };
 // Minimal PDF previewer: renders each page to a canvas. No browser PDF
 // chrome — no toolbar, sidebar, zoom controls, or blob-filename title.
 // Remount per url (parents pass key={url}) so state starts fresh each time.
-export default function PdfPages({ url }: { url: string }) {
+export default function PdfPages({ url, onPages }: { url: string; onPages?: (n: number) => void }) {
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState("");
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
@@ -30,6 +30,7 @@ export default function PdfPages({ url }: { url: string }) {
         if (cancelled) return;
         pdfRef.current = pdf as unknown as PdfDoc;
         setNumPages(pdf.numPages);
+        onPages?.(pdf.numPages);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
@@ -37,7 +38,7 @@ export default function PdfPages({ url }: { url: string }) {
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [url, onPages]);
 
   useEffect(() => {
     const pdf = pdfRef.current;

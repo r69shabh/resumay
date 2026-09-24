@@ -1,15 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PdfPages from "./PdfPages";
 import { AlertCircle, Loader2, RotateCw, X } from "lucide-react";
 import { Button } from "./ui/button";
+import { explainLatexLog } from "@/lib/latex-errors";
 
 export type PreviewInfo = {
   pdfUrl: string | null;
   log: string;
   failed: boolean;
   busy: boolean;
+  pages: number | null;
 };
 
 // Server-side compile via /api/compile (tectonic).
@@ -25,15 +27,17 @@ export default function LatexPreview({
   const [log, setLog] = useState("");
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(true);
+  const [pages, setPages] = useState<number | null>(null);
   const [showLogModal, setShowLogModal] = useState(false);
+  const handlePages = useCallback((n: number) => setPages(n), []);
 
   const busyRef = useRef(false);
   const pendingRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    onInfo?.({ pdfUrl, log, failed, busy });
-  }, [pdfUrl, log, failed, busy, onInfo]);
+    onInfo?.({ pdfUrl, log, failed, busy, pages });
+  }, [pdfUrl, log, failed, busy, pages, onInfo]);
 
   const run = useCallback(async (src: string) => {
     // Abort any prior in-flight request
@@ -45,6 +49,7 @@ export default function LatexPreview({
 
     busyRef.current = true;
     setBusy(true);
+    setPages(null);
 
     try {
       const res = await fetch("/api/compile", {
@@ -111,11 +116,34 @@ export default function LatexPreview({
 
   const isTimeout = log.includes("504") || log.toLowerCase().includes("timed out") || log.toLowerCase().includes("timeout");
 
+  const hints = useMemo(
+    () => (failed && log && !isTimeout ? explainLatexLog(log) : []),
+    [failed, log, isTimeout],
+  );
+
+  const hintsBlock = hints.length > 0 && (
+    <div className="space-y-2 text-left">
+      {hints.map((h, i) => (
+        <div key={i} className="rounded-md border border-border/60 bg-background p-3">
+          <p className="text-xs font-semibold text-foreground">
+            {h.title}
+            {h.line !== undefined && (
+              <span className="ml-1.5 font-mono font-normal text-muted-foreground">
+                line {h.line}
+              </span>
+            )}
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{h.detail}</p>
+        </div>
+      ))}
+    </div>
+  );
+
   // CASE 1: We already have a valid PDF preview
   if (pdfUrl) {
     return (
       <div className="relative h-full w-full">
-        <PdfPages key={pdfUrl} url={pdfUrl} />
+        <PdfPages key={pdfUrl} url={pdfUrl} onPages={handlePages} />
 
         {/* Loading Spinner Indicator */}
         {busy && (
@@ -187,6 +215,7 @@ export default function LatexPreview({
                   <X className="h-4 w-4" />
                 </button>
               </div>
+              {hintsBlock}
               <pre className="mt-4 max-h-80 w-full overflow-auto rounded-md bg-muted p-3.5 font-mono text-[11px] leading-relaxed text-foreground whitespace-pre-wrap">
                 {log || "No log details available."}
               </pre>
@@ -220,6 +249,7 @@ export default function LatexPreview({
               ? "The compiler took longer than expected to generate your preview."
               : "Tectonic encountered syntax errors in the LaTeX source."}
           </p>
+          {hintsBlock}
           {log && (
             <pre className="mt-3 max-h-72 w-full overflow-auto rounded-md bg-muted p-3.5 text-left font-mono text-[11px] leading-relaxed text-foreground whitespace-pre-wrap">
               {log}
