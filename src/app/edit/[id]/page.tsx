@@ -30,8 +30,10 @@ import {
   renderPlainText,
   getResolvedTemplateConfig,
   type ResumeContent,
+  type ResumeLink,
   type ResumeSectionId,
 } from "@/lib/resume";
+import { lintResume, type LintReport } from "@/lib/resume-lint";
 import { RESUME_TEMPLATES } from "@/lib/templates-data";
 import { downloadFileName } from "@/lib/utils";
 import JdMatchModal from "@/components/JdMatchModal";
@@ -65,6 +67,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Target,
+  ListChecks,
   Tag,
   Layout,
 } from "lucide-react";
@@ -207,6 +210,154 @@ function TagInput({
         placeholder={tags.length ? "" : "Add tag"}
         className="w-16 min-w-0 flex-1 bg-transparent outline-none text-xs text-foreground placeholder:text-muted-foreground/60"
       />
+    </div>
+  );
+}
+
+// ─── Links editor (LinkedIn / GitHub / coding profile) ────────────────────────
+
+const LINK_PRESETS = ["LinkedIn", "GitHub", "LeetCode", "Codeforces", "Portfolio"];
+
+function LinksEditor({
+  links,
+  onChange,
+}: {
+  links: ResumeLink[];
+  onChange: (l: ResumeLink[]) => void;
+}) {
+  return (
+    <div>
+      <span className={labelCls}>Links</span>
+      <div className="space-y-2">
+        {links.map((l, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Input
+              value={l.label}
+              onChange={(e) =>
+                onChange(links.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))
+              }
+              placeholder="LinkedIn"
+              className="w-28 shrink-0"
+            />
+            <Input
+              value={l.url}
+              onChange={(e) =>
+                onChange(links.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))
+              }
+              placeholder="https://linkedin.com/in/you"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onChange(links.filter((_, j) => j !== i))}
+              className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-destructive"
+              title="Remove"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          {LINK_PRESETS.filter((p) => !links.some((l) => l.label.trim() === p)).map((p) => (
+            <Button
+              key={p}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onChange([...links, { label: p, url: "" }])}
+              className="h-7 gap-1 rounded-full border-dashed text-xs"
+            >
+              <Plus className="h-3 w-3" />
+              {p}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Bullets with placement-rule counter ───────────────────────────────────────
+
+function BulletList({
+  label,
+  value,
+  onChange,
+  rows = 3,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  placeholder?: string;
+}) {
+  const bullets = value
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const unquantified = bullets.filter((b) => !/\d/.test(b)).length;
+  return (
+    <div>
+      <Area label={label} value={value} onChange={onChange} rows={rows} placeholder={placeholder} />
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+        <span className={bullets.length > 4 ? "font-medium text-amber-600 dark:text-amber-400" : ""}>
+          {bullets.length}/4 bullets
+        </span>
+        {unquantified > 0 && (
+          <span className="text-amber-600/90 dark:text-amber-400/90">
+            {unquantified} without a number
+          </span>
+        )}
+        <span>wrap **words** to bold</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Resume checks (campus placement checklist) ───────────────────────────────
+
+function ResumeChecks({ report }: { report: LintReport }) {
+  const tone =
+    report.score >= 85 ? "text-emerald-600 dark:text-emerald-400" : report.score >= 60 ? "text-amber-600 dark:text-amber-400" : "text-destructive";
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className={`text-2xl font-semibold tabular-nums ${tone}`}>{report.score}</span>
+        <div className="flex-1">
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className={`h-full rounded-full ${tone.replace("text-", "bg-")}`} style={{ width: `${report.score}%` }} />
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {report.issues.length === 0
+              ? "All checks passed"
+              : `${report.passed}/${report.total} checks passed`}
+          </p>
+        </div>
+      </div>
+
+      {report.issues.length > 0 && (
+        <ul className="space-y-2">
+          {report.issues.map((issue) => (
+            <li key={issue.id} className="flex gap-2 text-xs">
+              <span
+                className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                  issue.severity === "error"
+                    ? "bg-destructive"
+                    : issue.severity === "warn"
+                      ? "bg-amber-500"
+                      : "bg-muted-foreground/50"
+                }`}
+              />
+              <div>
+                <p className="font-medium text-foreground">{issue.title}</p>
+                <p className="text-muted-foreground">{issue.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -739,6 +890,10 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const onInfo = useCallback((i: PreviewInfo) => setInfo(i), []);
 
   const resolvedConfig = useMemo(() => getResolvedTemplateConfig(content), [content]);
+  const lintReport = useMemo(
+    () => lintResume(content, info?.pages ?? null),
+    [content, info?.pages],
+  );
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1068,6 +1223,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                   <Field label="Email" value={content.email} onChange={(v) => touch({ ...content, email: v })} placeholder="jane@example.com" />
                 </div>
                 <Field label="Location" value={content.location} onChange={(v) => touch({ ...content, location: v })} placeholder="San Francisco, CA" />
+                <LinksEditor links={content.links ?? []} onChange={(links) => touch({ ...content, links })} />
               </Section>
 
               {/* Dynamic sections ordered by active template configuration */}
@@ -1099,7 +1255,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                               <Field label="Start" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="Jan 2023" />
                               <Field label="End" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="Present" />
                             </div>
-                            <Area label="Bullets (one per line)" rows={3} value={e.bullets} onChange={(v) => set({ ...e, bullets: v })} placeholder="Reduced latency by 40%…" />
+                            <BulletList label="Bullets (one per line)" rows={3} value={e.bullets} onChange={(v) => set({ ...e, bullets: v })} placeholder="Reduced latency by **40%**…" />
                           </>
                         )}
                       />
@@ -1125,7 +1281,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                               <Field label="Date" value={p.date} onChange={(v) => set({ ...p, date: v })} placeholder="Fall 2024" />
                               <Field label="URL" value={p.url} onChange={(v) => set({ ...p, url: v })} placeholder="https://github.com/…" />
                             </div>
-                            <Area label="Impact bullets (one per line)" rows={2} value={p.bullets} onChange={(v) => set({ ...p, bullets: v })} />
+                            <BulletList label="Impact bullets (one per line)" rows={2} value={p.bullets} onChange={(v) => set({ ...p, bullets: v })} placeholder="Serving **12,000+** monthly requests…" />
                           </>
                         )}
                       />
@@ -1170,9 +1326,31 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                             <div className="grid grid-cols-3 gap-3">
                               <Field label="Start" value={e.start} onChange={(v) => set({ ...e, start: v })} placeholder="2021" />
                               <Field label="End" value={e.end} onChange={(v) => set({ ...e, end: v })} placeholder="2025" />
-                              <Field label="GPA" value={e.grade} onChange={(v) => set({ ...e, grade: v })} placeholder="3.9/4.0" />
+                              <Field label="GPA / %" value={e.grade} onChange={(v) => set({ ...e, grade: v })} placeholder="9.12 CGPA or 94.2%" />
                             </div>
                           </>
+                        )}
+                      />
+                    </Section>
+                  );
+                }
+                if (secId === "achievements") {
+                  return (
+                    <Section key="achievements" title="Achievements" icon={<Star className="h-3.5 w-3.5" />} count={(content.achievements ?? []).length} onSave={() => void save()} saving={saving}>
+                      <p className="text-[11px] text-muted-foreground">
+                        Competitive ratings, hackathons, open source and research — quantify the rank, e.g. “Ranked 31 among 1,200+ teams”.
+                      </p>
+                      <Entries
+                        items={content.achievements ?? []}
+                        onChange={(achievements) => touch({ ...content, achievements })}
+                        blank={{ title: "", detail: "" }}
+                        addLabel="Add achievement"
+                        titleFn={(a) => a.title || "Achievement"}
+                        render={(a, set) => (
+                          <div className="grid grid-cols-[11rem_1fr] gap-3">
+                            <Field label="Title" value={a.title} onChange={(v) => set({ ...a, title: v })} placeholder="Codeforces" />
+                            <Field label="Detail" value={a.detail} onChange={(v) => set({ ...a, detail: v })} placeholder="**1847** rating, top **4%** globally" />
+                          </div>
                         )}
                       />
                     </Section>
@@ -1219,6 +1397,14 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 return null;
               })}
+
+              <Section
+                title="Resume checks"
+                icon={<ListChecks className="h-3.5 w-3.5" />}
+                count={lintReport.issues.length}
+              >
+                <ResumeChecks report={lintReport} />
+              </Section>
             </div>
           ) : (
             <div className="flex h-full flex-col gap-2">

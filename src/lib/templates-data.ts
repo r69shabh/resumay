@@ -99,6 +99,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
         { label: "Frameworks & Libs", items: "React, Next.js, Node.js, Express, Tailwind CSS, GraphQL" },
         { label: "Infrastructure & Tools", items: "Docker, Kubernetes, AWS (S3, EKS, Lambda), PostgreSQL, Redis, Kafka, Git" },
       ],
+      achievements: [],
       certificates: [
         { name: "AWS Certified Solutions Architect", issuer: "Amazon Web Services", date: "2023" },
       ],
@@ -170,6 +171,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
         { label: "Backend", items: "Node.js, Express, Prisma ORM, PostgreSQL, Redis, REST APIs, GraphQL" },
         { label: "DevOps & Tools", items: "Git, Vercel, Docker, GitHub Actions CI/CD, Jest, Vitest" },
       ],
+      achievements: [],
       certificates: [],
       extra: [],
     },
@@ -237,6 +239,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
         { label: "Languages & Data", items: "Python, C++, SQL, Pandas, NumPy, Scikit-learn" },
         { label: "Cloud & MLOps", items: "AWS SageMaker, Docker, Ray, MLflow, Weights & Biases, Vector DBs (Pinecone, Qdrant)" },
       ],
+      achievements: [],
       certificates: [
         { name: "Deep Learning Specialization", issuer: "DeepLearning.AI", date: "2022" },
       ],
@@ -306,6 +309,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
         { label: "Product Leadership", items: "Product Roadmapping, Go-To-Market (GTM), User Research, OKRs, Agile / Scrum" },
         { label: "Analytics & Tools", items: "SQL, Amplitude, Mixpanel, Google Analytics, Jira, Figma, Tableau" },
       ],
+      achievements: [],
       certificates: [
         { name: "Certified Scrum Product Owner (CSPO)", issuer: "Scrum Alliance", date: "2021" },
       ],
@@ -371,6 +375,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
         { label: "Financial Modeling", items: "DCF, LBO, 3-Statement Modeling, M&A Accretion/Dilution, Sensitivity Tables" },
         { label: "Tools & Terminals", items: "Bloomberg Terminal, FactSet, Capital IQ, PitchBook, Advanced Excel (VBA), Python" },
       ],
+      achievements: [],
       certificates: [
         { name: "FINRA Series 79 & Series 63 Licenses", issuer: "FINRA", date: "2023" },
         { name: "CFA Program - Passed Level I Exam", issuer: "CFA Institute", date: "2024" },
@@ -441,6 +446,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
         { label: "Core Competencies", items: "Hypothesis-Driven Problem Solving, Post-Merger Integration, MECE Structuring, Supply Chain Optimization" },
         { label: "Analytics & Presentation", items: "Executive Board Storyboarding, Financial Modeling, Tableau, Alteryx, Advanced Excel" },
       ],
+      achievements: [],
       certificates: [],
       extra: [
         { title: "Kellogg Strategy Club", detail: "President; organized annual National Case Competition hosting 24 business schools." },
@@ -510,6 +516,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
         { label: "Technologies", items: "Git, Linux, React, Node.js, REST APIs, Docker Basics" },
         { label: "Coursework", items: "Algorithms & Data Structures, Operating Systems, Database Management, Networks" },
       ],
+      achievements: [],
       certificates: [],
       extra: [
         { title: "VP of Tech, Women in Computer Science", detail: "Organized technical interview workshops and mentorship for 200+ members." },
@@ -577,6 +584,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
         { label: "Systems & Linux", items: "Linux Kernel Tuning, eBPF, TCP/IP, Sockets, POSIX Threads, Docker" },
         { label: "Tools", items: "CMake, GDB, Valgrind, Perf, Git, CI/CD" },
       ],
+      achievements: [],
       certificates: [],
       extra: [],
     },
@@ -606,9 +614,116 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
       education: [{ school: "", degree: "", location: "", start: "", end: "", grade: "" }],
       experience: [{ title: "", company: "", location: "", start: "", end: "", bullets: "" }],
       projects: [{ name: "", tech: "", date: "", url: "", bullets: "" }],
+      achievements: [],
       certificates: [],
       skills: [{ label: "Skills", items: "" }],
       extra: [],
+    },
+  },
+  {
+    id: "campus",
+    name: "Campus Placement",
+    category: "student",
+    roleTag: "SDE",
+    badge: "1-Page Rule",
+    description:
+      "Campus-hire order: Education, Internships, Projects, Achievements, Skills. Compact by default so it lands on one page.",
+    highlights: [
+      "1-Page Compact",
+      "Dedicated Achievements",
+      "CP Ratings Visible",
+      "Class XII / X Rows",
+    ],
+    layoutInfo: {
+      typography: "Serif (Computer Modern)",
+      headerStyle: "Centered Classic",
+      priority: "Education First",
+      sequence: ["Education", "Internships", "Projects", "Achievements", "Skills"],
+    },
+    content: {
+      template: "campus",
+      templateConfig: { templateId: "campus", density: "compact" },
+      name: "Arjun Mehta",
+      phone: "+91 98765 43210",
+      email: "arjun.mehta@college.edu",
+      location: "Bengaluru, India",
+      links: [
+        { label: "LinkedIn", url: "https://linkedin.com/in/arjunmehta" },
+        { label: "GitHub", url: "https://github.com/arjunmehta" },
+        { label: "LeetCode", url: "https://leetcode.com/arjunmehta" },
+      ],
+      summary: "",
+      education: [
+        {
+          school: "National Institute of Technology",
+          degree: "B.Tech, Computer Science & Engineering",
+          location: "Kurukshetra, India",
+          start: "2023",
+          end: "2027",
+          grade: "CGPA 9.12/10",
+        },
+        {
+          school: "Kendriya Vidyalaya",
+          degree: "Class XII (CBSE), PCM",
+          location: "",
+          start: "",
+          end: "2023",
+          grade: "94.2%",
+        },
+        {
+          school: "Kendriya Vidyalaya",
+          degree: "Class X (CBSE)",
+          location: "",
+          start: "",
+          end: "2021",
+          grade: "92.8%",
+        },
+      ],
+      experience: [
+        {
+          title: "Software Engineering Intern",
+          company: "Paytm",
+          location: "Noida, India",
+          start: "May 2025",
+          end: "July 2025",
+          bullets:
+            "Built a merchant dashboard in **React** and **Node.js** serving **12,000+** daily requests, cutting p95 load time from **1.9s** to **480ms**.\nAutomated reconciliation with **PostgreSQL** and **Redis**, removing **6 hours** of manual weekly effort.\nReduced payment-failure rate **38%** by tracing retry logic end to end and surfacing gateway errors in real time.\nShipped the module to production for **3 merchant teams** with **0** rollback incidents.",
+        },
+      ],
+      projects: [
+        {
+          name: "Transit-Graph",
+          tech: "Go, Kafka, Neo4j, Docker",
+          date: "2025",
+          url: "https://github.com/arjunmehta/transit-graph",
+          bullets:
+            "Engineered a real-time transit graph ingesting **1.2M** GTFS feeds per day, serving sub-**100ms** route queries.\nDesigned an incremental recompute strategy that cut nightly processing from **9 hours** to **41 minutes**.\nContainerised the pipeline on **Kubernetes**, handling **2.1M** events per day with **99.9%** uptime.",
+        },
+        {
+          name: "MediScribe",
+          tech: "Next.js, PostgreSQL, LangChain",
+          date: "2024",
+          url: "https://github.com/arjunmehta/mediscribe",
+          bullets:
+            "Built a clinical-notes summariser with retrieval-grounded context, reducing documentation time **45%** for **30+** beta users.\nImplemented a citation check that flags **100%** of unsupported claims, reviewed by 3 practicing physicians.",
+        },
+      ],
+      achievements: [
+        { title: "Codeforces", detail: "**1847** rating, top **4%** globally" },
+        { title: "ICPC Asia Regionals", detail: "Ranked **31** among **1,200+** teams" },
+        { title: "Smart India Hackathon", detail: "Winner, national grand finale, **2024**" },
+        { title: "Open Source", detail: "Merged **14** PRs into **5** CNCF projects" },
+      ],
+      certificates: [],
+      skills: [
+        { label: "Languages", items: "C++, Python, JavaScript, TypeScript, Go, SQL" },
+        { label: "Web / Backend", items: "React, Next.js, Node.js, Express, FastAPI" },
+        { label: "Data & Infra", items: "PostgreSQL, Redis, MongoDB, Kafka, Docker, Kubernetes" },
+        { label: "Tools", items: "Git, GitHub Actions, Linux, Postman" },
+      ],
+      extra: [
+        { title: "Coding Club", detail: "Technical Lead, ran **3** internal hackathons" },
+      ],
     },
   },
 ];

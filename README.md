@@ -31,6 +31,8 @@ Most resume builders either generate non-standard multi-column PDFs that break A
 - 👁️ **Live Side-by-Side PDF Preview**: See your exact compiled PDF update in real time as you edit.
 - 🔍 **ATS Text Inspector**: Switch to the **ATS Text** tab to verify the exact text stream that applicant tracking systems see.
 - 🎨 **Curated Industry Templates**: Choose from tailored layouts including *Jake's Classic SWE*, *Investment Banking*, *Management Consulting*, *Full-Stack*, and *Student*.
+- 🎓 **Campus Placement Template**: Education-first ordering, Class XII / X rows, a dedicated **Achievements** section for CP ratings and hackathons, and compact spacing that lands on one page.
+- ✅ **Resume Checks**: Live scoring against placement checklists — one-page fit, quantified bullets, no "worked on" phrasing, missing LinkedIn/GitHub links, and banned skill ratings.
 - 🔗 **Instant Public Share Links**: Every resume gets its own fast, public link (`/r/[slug]`) complete with high-resolution social preview cards and raw text options.
 - 💻 **Raw LaTeX Escape Hatch**: Toggle to the raw LaTeX tab whenever you want full control over the underlying code.
 - 🖼️ **Rotating Public Domain Pastel Art Login**: Clean authentication powered by Google SSO and rotating museum pastel masterpieces (Degas, Redon, Manet, Liotard).

@@ -29,6 +29,7 @@ export type ProjectEntry = {
 export type CertificateEntry = { name: string; issuer: string; date: string };
 export type SkillGroup = { label: string; items: string };
 export type ExtraEntry = { title: string; detail: string };
+export type AchievementEntry = { title: string; detail: string };
 
 export type ResumeSectionId =
   | "summary"
@@ -36,6 +37,7 @@ export type ResumeSectionId =
   | "projects"
   | "skills"
   | "education"
+  | "achievements"
   | "certificates"
   | "extra";
 
@@ -61,6 +63,7 @@ export type ResumeContent = {
   education: EducationEntry[];
   experience: ExperienceEntry[];
   projects: ProjectEntry[];
+  achievements: AchievementEntry[];
   certificates: CertificateEntry[];
   skills: SkillGroup[];
   extra: ExtraEntry[];
@@ -75,78 +78,97 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
     sectionOrder: ResumeSectionId[];
     headerSubtitle: string;
     accent: string;
+    density: "comfortable" | "compact";
   }
 > = {
   swe: {
     templateId: "swe",
+    density: "comfortable",
     accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
-    sectionOrder: ["experience", "projects", "skills", "education", "certificates", "extra"],
+    sectionOrder: ["experience", "projects", "achievements", "skills", "education", "certificates", "extra"],
     headerSubtitle: "",
   },
   fullstack: {
     templateId: "fullstack",
+    density: "comfortable",
     accent: "1D4ED8",
     fontFamily: "sans",
     headerLayout: "left",
-    sectionOrder: ["summary", "experience", "projects", "skills", "education", "certificates", "extra"],
+    sectionOrder: ["summary", "experience", "projects", "achievements", "skills", "education", "certificates", "extra"],
     headerSubtitle: "Full-Stack Software Engineer",
   },
   aiml: {
     templateId: "aiml",
+    density: "comfortable",
     accent: "0E7490",
     fontFamily: "sans",
     headerLayout: "left",
-    sectionOrder: ["summary", "skills", "experience", "projects", "education", "extra", "certificates"],
+    sectionOrder: ["summary", "achievements", "skills", "experience", "projects", "education", "extra", "certificates"],
     headerSubtitle: "AI & Machine Learning Specialist",
   },
   pm: {
     templateId: "pm",
+    density: "comfortable",
     accent: "6D28D9",
     fontFamily: "sans",
     headerLayout: "left",
-    sectionOrder: ["summary", "skills", "experience", "projects", "education", "certificates", "extra"],
+    sectionOrder: ["summary", "achievements", "skills", "experience", "projects", "education", "certificates", "extra"],
     headerSubtitle: "Senior Technical Product Manager",
   },
   finance: {
     templateId: "finance",
+    density: "comfortable",
     accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
-    sectionOrder: ["education", "experience", "skills", "certificates", "extra", "projects"],
+    sectionOrder: ["education", "experience", "achievements", "skills", "certificates", "extra", "projects"],
     headerSubtitle: "",
   },
   consulting: {
     templateId: "consulting",
+    density: "comfortable",
     accent: "334155",
     fontFamily: "sans",
     headerLayout: "left",
-    sectionOrder: ["summary", "experience", "education", "skills", "certificates", "extra"],
+    sectionOrder: ["summary", "experience", "achievements", "education", "skills", "certificates", "extra"],
     headerSubtitle: "Management Consultant | Strategy & Operations",
   },
   newgrad: {
     templateId: "newgrad",
+    density: "comfortable",
     accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
-    sectionOrder: ["education", "projects", "experience", "skills", "extra", "certificates"],
+    sectionOrder: ["education", "achievements", "projects", "experience", "skills", "extra", "certificates"],
     headerSubtitle: "",
   },
   compact: {
     templateId: "compact",
+    density: "comfortable",
     accent: "047857",
     fontFamily: "sans",
     headerLayout: "split",
-    sectionOrder: ["skills", "experience", "projects", "education", "certificates", "extra"],
+    sectionOrder: ["skills", "experience", "projects", "achievements", "education", "certificates", "extra"],
     headerSubtitle: "Software Engineer",
+  },
+  campus: {
+    templateId: "campus",
+    fontFamily: "serif",
+    headerLayout: "center",
+    sectionOrder: ["education", "experience", "projects", "achievements", "skills", "certificates", "extra"],
+    headerSubtitle: "",
+    accent: "000000",
+    density: "compact",
   },
   blank: {
     templateId: "blank",
+    density: "comfortable",
     accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
-    sectionOrder: ["education", "experience", "projects", "skills", "certificates", "extra"],
+    sectionOrder: ["education", "experience", "projects", "achievements", "skills", "certificates", "extra"],
     headerSubtitle: "",
   },
 };
@@ -191,6 +213,7 @@ export function defaultContent(): ResumeContent {
     education: [{ school: "", degree: "", location: "", start: "", end: "", grade: "" }],
     experience: [{ title: "", company: "", location: "", start: "", end: "", bullets: "" }],
     projects: [{ name: "", tech: "", date: "", url: "", bullets: "" }],
+    achievements: [],
     certificates: [],
     skills: [{ label: "Languages", items: "" }],
     extra: [],
@@ -212,6 +235,7 @@ export function parseContent(json: unknown): ResumeContent {
     education: Array.isArray(j.education) && j.education.length ? j.education : d.education,
     experience: Array.isArray(j.experience) && j.experience.length ? j.experience : d.experience,
     projects: Array.isArray(j.projects) && j.projects.length ? j.projects : d.projects,
+    achievements: Array.isArray(j.achievements) ? j.achievements : d.achievements,
     certificates: Array.isArray(j.certificates) ? j.certificates : d.certificates,
     skills: Array.isArray(j.skills) && j.skills.length ? j.skills : d.skills,
     extra: Array.isArray(j.extra) ? j.extra : d.extra,
@@ -251,6 +275,25 @@ const lines = (s: string) =>
     .filter(Boolean);
 
 const nonEmpty = (o: object) => Object.values(o).some((v) => String(v ?? "").trim() !== "");
+
+// Bold the things recruiters scan for: explicit **highlights**, plus metrics
+// (35%, 240ms, 10K+, 2.1M, 12x) which placement feedback says are always missed.
+const METRIC = /(\d+(?:\.\d+)?\s?(?:%|ms|sec|s|x|×|[KkMmBb]\+?|\+))/g;
+
+export function richText(s: string): string {
+  return s
+    .split(/(\*\*[^*\n]+\*\*)/g)
+    .map((part) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return `\\textbf{${escapeLatex(part.slice(2, -2).trim())}}`;
+      }
+      return part
+        .split(METRIC)
+        .map((token, i) => (i % 2 ? `\\textbf{${escapeLatex(token)}}` : escapeLatex(token)))
+        .join("");
+    })
+    .join("");
+}
 
 const TITLE_OVERRIDES: Record<string, Partial<Record<ResumeSectionId, string>>> = {
   swe: {
@@ -302,6 +345,15 @@ const TITLE_OVERRIDES: Record<string, Partial<Record<ResumeSectionId, string>>> 
     experience: "Work and Internship Experience",
     skills: "Skills and Relevant Coursework",
     extra: "Leadership and Activities",
+  },
+  campus: {
+    education: "Education",
+    experience: "Internships",
+    projects: "Projects",
+    achievements: "Achievements",
+    skills: "Technical Skills",
+    certificates: "Certifications",
+    extra: "Positions of Responsibility",
   },
   compact: {
     skills: "Technical Skills",
@@ -377,11 +429,12 @@ export function renderLatex(c: ResumeContent): string {
   const certs = c.certificates.filter(nonEmpty);
   const skills = c.skills.filter((s) => s.label.trim() || s.items.trim());
   const extra = c.extra.filter(nonEmpty);
+  const achievements = (c.achievements ?? []).filter(nonEmpty);
 
   const section = (title: string, body: string) =>
     body ? `%---------- ${title.toUpperCase()} ----------\n\\section{${escapeLatex(title)}}\n${body}\n` : "";
 
-  const summary = c.summary.trim() ? `${escapeLatex(c.summary.trim())}\n` : "";
+  const summary = c.summary.trim() ? `${richText(c.summary.trim())}\n` : "";
 
   const education = edu.length
     ? `\\resumeSubHeadingListStart\n${edu
@@ -399,7 +452,7 @@ export function renderLatex(c: ResumeContent): string {
           const bulletLines = lines(e.bullets);
           const itemList = bulletLines.length
             ? `\n    \\resumeItemListStart\n${bulletLines
-                .map((b) => `      \\resumeItem{${escapeLatex(b)}}`)
+                .map((b) => `      \\resumeItem{${richText(b)}}`)
                 .join("\n")}\n    \\resumeItemListEnd`
             : "";
           return `  \\resumeSubheading\n    {${escapeLatex(e.title)}}{${escapeLatex(e.start)}${e.start && e.end ? " -- " : ""}${escapeLatex(e.end)}}\n    {${escapeLatex(e.company)}}{${escapeLatex(e.location)}}${itemList}`;
@@ -412,10 +465,10 @@ export function renderLatex(c: ResumeContent): string {
         .map((p) => {
           const bulletLines = lines(p.bullets);
           const link = p.url.trim() ? ` $|$ \\href{${escapeUrl(p.url)}}{Link}` : "";
-          const tech = p.tech.trim() ? ` $|$ \\emph{${escapeLatex(p.tech)}}` : "";
+          const tech = p.tech.trim() ? ` $|$ \\textbf{${richText(p.tech)}}` : "";
           const itemList = bulletLines.length
             ? `\n    \\resumeItemListStart\n${bulletLines
-                .map((b) => `      \\resumeItem{${escapeLatex(b)}}`)
+                .map((b) => `      \\resumeItem{${richText(b)}}`)
                 .join("\n")}\n    \\resumeItemListEnd`
             : "";
           return `  \\resumeSubheading\n    {${escapeLatex(p.name)}${tech}${link}}{${escapeLatex(p.date)}}\n    {}{}${itemList}`;
@@ -442,7 +495,14 @@ export function renderLatex(c: ResumeContent): string {
   const extraBlock = simpleList(
     extra.map(
       (x) =>
-        `\\textbf{${escapeLatex(x.title)}}${x.detail.trim() ? `: ${escapeLatex(x.detail)}` : ""}`,
+        `\\textbf{${escapeLatex(x.title)}}${x.detail.trim() ? ` -- ${richText(x.detail)}` : ""}`,
+    ),
+  );
+
+  const achievementsBlock = simpleList(
+    achievements.map(
+      (x) =>
+        `\\textbf{${escapeLatex(x.title)}}${x.detail.trim() ? ` -- ${richText(x.detail)}` : ""}`,
     ),
   );
 
@@ -451,6 +511,7 @@ export function renderLatex(c: ResumeContent): string {
     education: { defaultTitle: "Education", body: education },
     experience: { defaultTitle: "Experience", body: experience },
     projects: { defaultTitle: "Projects", body: projects },
+    achievements: { defaultTitle: "Achievements", body: achievementsBlock },
     skills: { defaultTitle: "Technical Skills", body: skillBlock },
     certificates: { defaultTitle: "Certificates", body: certificates },
     extra: { defaultTitle: "Extra Curricular", body: extraBlock },
@@ -590,6 +651,7 @@ export function renderPlainText(c: ResumeContent): string {
   const certs = c.certificates.filter(nonEmpty);
   const skills = c.skills.filter((s) => s.label.trim() || s.items.trim());
   const extra = c.extra.filter(nonEmpty);
+  const achievements = (c.achievements ?? []).filter(nonEmpty);
 
   const plainBlocks: Record<ResumeSectionId, { defaultTitle: string; lines: string[] }> = {
     summary: {
@@ -629,6 +691,10 @@ export function renderPlainText(c: ResumeContent): string {
           .join("\n");
         return [head, ...lines(p.bullets).map((b) => `- ${b}`)].filter(Boolean);
       }),
+    },
+    achievements: {
+      defaultTitle: "Achievements",
+      lines: achievements.map((x) => [x.title.trim(), x.detail.trim()].filter(Boolean).join(": ")),
     },
     skills: {
       defaultTitle: "Technical Skills",
