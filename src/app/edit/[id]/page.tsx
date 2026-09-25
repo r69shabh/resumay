@@ -416,8 +416,8 @@ function ResumeChecks({ report }: { report: LintReport }) {
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-foreground">
             {report.issues.length === 0
-              ? "Placement checklist passed"
-              : `${report.total - report.issues.length} of ${report.total} checks passed`}
+              ? "All checks passed"
+              : `${report.passed} of ${report.total} checks passed`}
           </p>
           <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
             <div className={`h-full rounded-full ${tone.bg}`} style={{ width: `${report.score}%` }} />
@@ -1595,7 +1595,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                     <Section key="achievements" title="Achievements" icon={<Star className="h-3.5 w-3.5" />} count={(content.achievements ?? []).length} onSave={() => void save()} saving={saving} {...dragProps}>
                       <p className="flex items-start gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
                         <Info className="mt-0.5 h-3 w-3 shrink-0" />
-                        Competitive ratings, hackathons, open source and research. Quantify the rank — e.g. “Ranked 31 among 1,200+ teams”.
+                        Awards, open source, publications, speaking or competition results. Add scale where you can — e.g. “Selected from 1,200+ entries”.
                       </p>
                       <Entries
                         items={content.achievements ?? []}

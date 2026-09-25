@@ -1,6 +1,7 @@
-// Resume checklist derived from campus placement feedback: one page, evidence
-// over adjectives, quantified + bolded impact, dedicated achievements, working
-// links, no skill ratings. Pure function so it can run in the editor and tests.
+// Universal resume quality checks. Deliberately audience-agnostic: the same
+// rules apply to a student, a PM and a staff engineer. Rules cover things that
+// are wrong for everyone (generic bullets, unquantified claims, dead links,
+// skill ratings) rather than any one hiring style.
 
 import type { ResumeContent } from "./resume";
 
@@ -30,9 +31,10 @@ const ACTION_VERBS = new Set(
   (
     "built,engineered,designed,automated,optimised,optimized,implemented,spearheaded,reduced,scaled,launched,deployed," +
     "migrated,improved,delivered,created,developed,led,architected,shipped,accelerated,cut,increased,eliminated,rebuilt," +
-    "refactored,integrated,configured,monitored,analyzed,analysed,modelled,modeled,orchestrated,automate,drafted," +
+    "refactored,integrated,configured,monitored,analyzed,analysed,modelled,modeled,orchestrated,drafted," +
     "containerised,containerized,utilised,utilized,prioritised,prioritized,organised,organized,recognised,recognized," +
-    "centralised,centralized,visualised,visualized,standardised,standardized,specialised,specialized,minimised,maximised"
+    "centralised,centralized,visualised,visualized,standardised,standardized,specialised,specialized,minimised,maximised," +
+    "owned,drove,grew,generated,launched,negotiated,published,presented,mentored,coached,chaired,resolved,forecasted"
   ).split(","),
 );
 
@@ -42,105 +44,208 @@ const hasNumber = (s: string) => /\d/.test(s);
 
 export function lintResume(c: ResumeContent, pages: number | null): LintReport {
   const issues: LintIssue[] = [];
-  const add = (severity: LintSeverity, id: string, title: string, detail: string) =>
-    issues.push({ id, severity, title, detail });
+  let total = 0;
+  const check = (ok: boolean, severity: LintSeverity, id: string, title: string, detail: string) => {
+    total += 1;
+    if (!ok) issues.push({ id, severity, title, detail });
+  };
 
   const exp = c.experience.filter((e) => Object.values(e).some((v) => String(v).trim()));
   const proj = c.projects.filter((p) => Object.values(p).some((v) => String(v).trim()));
-  const ach = (c.achievements ?? []).filter((a) => a.title.trim() || a.detail.trim());
   const edu = c.education.filter((e) => Object.values(e).some((v) => String(v).trim()));
-  const allBullets = [...exp.flatMap((e) => bulletLines(e.bullets)), ...proj.flatMap((p) => bulletLines(p.bullets))];
+  const skills = c.skills.filter((s) => s.label.trim() || s.items.trim());
+  const bullets = [
+    ...exp.flatMap((e) => bulletLines(e.bullets).map((b) => ({ b, where: e.company || e.title }))),
+    ...proj.flatMap((p) => bulletLines(p.bullets).map((b) => ({ b, where: p.name }))),
+  ];
 
-  // Format
-  if (pages != null && pages > 1) {
-    add("error", "pages", `Resume spills onto ${pages} pages`, "Every resume in the reference set was exactly one page. Use Tighten to fit, then cut the lowest-value bullet.");
-  }
-  if (c.summary.trim()) {
-    add("warn", "summary", "Professional summary present", "Campus reviews call generic summaries filler. Cut it unless every line is a specific, defensible claim.");
-  }
+  // Length
+  check(
+    pages == null || pages <= 1,
+    "warn",
+    "pages",
+    pages && pages > 1 ? `Resume runs to ${pages} pages` : "Resume length",
+    "One page is the norm. Two pages is usually only worth it for senior candidates with deep experience — otherwise tighten or cut.",
+  );
 
-  // Header
-  const linkText = c.links.map((l) => `${l.label} ${l.url}`.toLowerCase());
-  const has = (needle: string) => linkText.some((t) => t.includes(needle));
-  if (!has("linkedin")) add("error", "linkedin", "No LinkedIn link", "LinkedIn is expected in the header of every technical resume.");
-  if (!has("github")) add("error", "github", "No GitHub link", "Recruiters click through to an active GitHub profile before the first interview.");
-  if (!has("leetcode") && !has("codeforces") && !has("codechef") && !has("portfolio")) {
-    add("info", "coding", "No coding profile or portfolio", "A LeetCode / Codeforces profile or a live portfolio gives instant verifiable proof.");
-  }
-  if (!c.phone.trim()) add("warn", "phone", "No phone number", "Header should carry a reachable phone number.");
-  if (!c.email.trim()) add("warn", "email", "No email", "Header should carry an email address.");
-  if (c.links.some((l) => l.label.trim() && !l.url.trim())) {
-    add("error", "brokenlink", "A link has no URL", "Dead or empty links are an instant credibility hit. Fill the URL or remove the row.");
-  }
-
-  // Education
-  if (!edu.length) add("error", "education", "No education entry", "Campus resumes lead with degree, institution, year and CGPA.");
-  if (edu.some((e) => !e.grade.trim())) {
-    add("warn", "cgpa", "An education row has no score", "Show CGPA / percentage for every qualification you list.");
-  }
-  if (!edu.some((e) => /class\s*(x|xii|10|12)/i.test(`${e.degree} ${e.school}`))) {
-    add("info", "school", "No Class XII / X rows", "Campus checklists expect Class XII and Class X with board, year and marks.");
-  }
+  // Contact
+  check(!!c.name.trim(), "error", "name", "No name", "The header needs your full name.");
+  check(!!c.phone.trim(), "warn", "phone", "No phone number", "Add a phone number recruiters can call.");
+  check(
+    !!c.email.trim(),
+    "warn",
+    "email",
+    "No email",
+    "Add an email address. A professional or college-domain address reads better than a personal one.",
+  );
+  const broken = c.links.filter((l) => l.label.trim() && !l.url.trim());
+  check(
+    broken.length === 0,
+    "error",
+    "brokenlink",
+    broken.length > 1 ? `${broken.length} links have no URL` : "A link has no URL",
+    "Empty link rows look unfinished and some reviewers treat them as broken. Fill the URL or remove the row.",
+  );
+  check(
+    c.links.filter((l) => l.url.trim()).length > 0,
+    "info",
+    "nolinks",
+    "No profile or portfolio links",
+    "LinkedIn, GitHub or a portfolio give reviewers somewhere to go after reading the resume.",
+  );
 
   // Evidence
-  if (!exp.length && !proj.length) {
-    add("error", "evidence", "No experience or projects", "A resume needs evidence: internships, projects or open source.");
-  }
-  if (!exp.length) add("info", "noexp", "No internships listed", "If you have none yet, lead harder with projects and achievements.");
-  if (proj.length > 3) add("warn", "projects", `${proj.length} projects listed`, "Keep 2-3 genuinely strong projects; depth beats count.");
-  if (proj.some((p) => !p.tech.trim())) {
-    add("warn", "tech", "A project has no tech stack", "Name the stack against the project so reviewers see it twice.");
-  }
-  if (proj.some((p) => !p.url.trim())) {
-    add("warn", "projectlink", "A project has no link", "Add a GitHub or live demo link for every project.");
-  }
+  check(
+    exp.length + proj.length > 0,
+    "error",
+    "evidence",
+    "No experience or projects",
+    "A resume needs evidence of work. Add at least one role, internship or project.",
+  );
+  check(
+    exp.length > 0 || proj.length > 0,
+    "info",
+    "volume",
+    exp.length + proj.length <= 2 ? "Very little experience listed" : "Experience looks healthy",
+    "One or two entries is fine early on, but reviewers look for a pattern. Add anything substantial you've shipped.",
+  );
 
   // Bullets
-  for (const e of exp) {
-    const n = bulletLines(e.bullets).length;
-    if (n > 4) add("warn", "bullets", `${e.company || "An internship"} has ${n} bullets`, "Cap at 4 bullets, strongest impact first.");
+  const generic = bullets.filter(({ b }) => GENERIC.test(b));
+  check(
+    generic.length === 0,
+    "error",
+    "generic",
+    generic.length > 1
+      ? `${generic.length} bullets describe duties instead of outcomes`
+      : "A bullet describes duties instead of outcomes",
+    'Replace "worked on" / "responsible for" with what you built, how, and what changed. Example: "Built X in Y, cutting Z by 35%."',
+  );
+
+  const unquantified = bullets.filter(({ b }) => !hasNumber(b));
+  check(
+    unquantified.length === 0,
+    "warn",
+    "quantify",
+    unquantified.length > 1
+      ? `${unquantified.length} bullets have no measurable result`
+      : "A bullet has no measurable result",
+    "Add scale or impact where it's true: %, ms, users, requests, revenue, team size, volume. Metrics are auto-bolded in the PDF.",
+  );
+
+  const verbose = bullets.filter(({ b }) => b.length > 200);
+  check(
+    verbose.length === 0,
+    "info",
+    "longbullet",
+    verbose.length > 1 ? `${verbose.length} bullets are very long` : "A bullet is very long",
+    "Bullets longer than two lines get skimmed. Split the detail or cut it to the outcome.",
+  );
+
+  for (const group of [
+    ...exp.map((e) => ({ label: e.company || e.title, n: bulletLines(e.bullets).length })),
+    ...proj.map((p) => ({ label: p.name, n: bulletLines(p.bullets).length })),
+  ]) {
+    if (group.n > 5) {
+      check(
+        false,
+        "info",
+        "bulletcount",
+        `${group.label} has ${group.n} bullets`,
+        "Keep the strongest 4–5 and let the rest go. Reviewers rarely read further.",
+      );
+    } else {
+      check(true, "info", "bulletcount", "bullet count", "");
+    }
   }
-  for (const p of proj) {
-    const n = bulletLines(p.bullets).length;
-    if (n > 4) add("warn", "bullets", `${p.name || "A project"} has ${n} bullets`, "Cap at 4 bullets, strongest impact first.");
-  }
-  const unquantified = allBullets.filter((b) => !hasNumber(b)).length;
-  if (unquantified > 0) {
-    add("warn", "quantify", `${unquantified} bullet${unquantified > 1 ? "s have" : " has"} no number`, "Quantify impact: %, ms, users, requests, revenue, team size. Metrics are auto-bolded in the PDF.");
-  }
-  const generic = allBullets.filter((b) => GENERIC.test(b));
-  if (generic.length) {
-    add("error", "generic", `${generic.length} generic bullet${generic.length > 1 ? "s" : ""}`, "Replace \"worked on / responsible for\" with what you built and the measurable result.");
-  }
-  const noVerb = allBullets.filter((b) => !ACTION_VERBS.has(b.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, "")));
-  if (noVerb.length) {
-    add("info", "verb", `${noVerb.length} bullet${noVerb.length > 1 ? "s don't" : " doesn't"} start with an action verb`, "Formula: action verb -> what you built -> technical complexity -> measurable impact.");
-  }
+
+  const weakOpeners = bullets.filter(({ b }) => !ACTION_VERBS.has(b.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, "")));
+  check(
+    weakOpeners.length === 0,
+    "info",
+    "verb",
+    weakOpeners.length > 1
+      ? `${weakOpeners.length} bullets don't open with a strong verb`
+      : "A bullet doesn't open with a strong verb",
+    "Start with Built, Reduced, Led, Designed, Automated, Scaled — it sets the tone for the whole line.",
+  );
+
   const verbCounts = new Map<string, number>();
-  for (const b of allBullets) {
+  for (const { b } of bullets) {
     const v = b.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]/g, "") ?? "";
     if (ACTION_VERBS.has(v)) verbCounts.set(v, (verbCounts.get(v) ?? 0) + 1);
   }
-  for (const [verb, n] of verbCounts) {
-    if (n >= 3) add("warn", "repeat", `"${verb}" starts ${n} bullets`, "Vary impact verbs: Built, Engineered, Designed, Automated, Reduced, Scaled, Shipped.");
-  }
+  const repeated = [...verbCounts.entries()].filter(([, n]) => n >= 3);
+  check(
+    repeated.length === 0,
+    "warn",
+    "repeat",
+    repeated.length
+      ? `Same opening verb ${repeated.length > 1 ? "repeats" : "repeats"}: ${repeated.map(([v]) => `“${v}”`).join(", ")}`
+      : "repeated verbs",
+    "Vary your openers so the page doesn't read as a list. Swap in Built, Engineered, Designed, Reduced, Scaled, Shipped.",
+  );
 
-  // Skills
-  if (c.skills.some((s) => /[★☆]|\b\d\s*\/\s*5\b|\b\d{1,3}\s*%/.test(s.items))) {
-    add("warn", "ratings", "Skill ratings found", "Never rate skills (Python ★★★★★). List only what you can defend in an interview.");
-  }
+  // Sections
+  check(
+    edu.length > 0,
+    "warn",
+    "education",
+    "No education entry",
+    "Degree, institution and year are expected on most resumes, even for self-taught candidates.",
+  );
+  const vagueEdu = edu.filter((e) => !e.end.trim() && !e.start.trim());
+  check(
+    vagueEdu.length === 0,
+    "info",
+    "edudates",
+    vagueEdu.length ? "An education entry has no dates" : "education dates",
+    "Graduation years help reviewers place your experience in time.",
+  );
 
-  // Achievements
-  if (!ach.length) {
-    add("warn", "achievements", "No achievements section", "CP ratings, ICPC ranks, hackathons and open source belong in a dedicated Achievements section, not buried in extracurriculars.");
-  } else if (ach.some((a) => !hasNumber(`${a.title} ${a.detail}`))) {
-    add("info", "achmetrics", "An achievement has no rank or number", "Quantify the denominator: ranked 31 among 1,200+ teams.");
-  }
+  check(
+    proj.length <= 5,
+    "info",
+    "projectcount",
+    `${proj.length} projects listed`,
+    "Depth beats count. Keep the ones you'd happily defend in a follow-up question.",
+  );
+  check(
+    !proj.some((p) => p.name.trim() && !p.url.trim()),
+    "info",
+    "projectlink",
+    "A project has no link",
+    "A repo or demo link is the fastest proof the work is real.",
+  );
+
+  check(
+    skills.length <= 7,
+    "info",
+    "skillgroups",
+    `${skills.length} skill categories`,
+    "Long lists dilute the signal. Group by what the role actually needs.",
+  );
+  check(
+    !skills.some((s) => /[★☆]|\b\d\s*\/\s*5\b|\b\d{1,3}\s*%/.test(s.items)),
+    "warn",
+    "ratings",
+    "Skill ratings found",
+    "Rating yourself (Python ★★★★★) reads as padding. List skills plainly and let your bullets prove depth.",
+  );
+
+  const summaryWords = c.summary.trim() ? c.summary.trim().split(/\s+/).length : 0;
+  check(
+    summaryWords <= 60,
+    "info",
+    "summary",
+    summaryWords > 60 ? `Summary runs ${summaryWords} words` : "summary length",
+    "Summaries are skimmed or skipped. Keep it to 2–3 specific lines, or cut it and lead with your strongest signal.",
+  );
 
   const errors = issues.filter((i) => i.severity === "error").length;
   const warns = issues.filter((i) => i.severity === "warn").length;
   const infos = issues.filter((i) => i.severity === "info").length;
-  const score = Math.max(0, Math.min(100, 100 - errors * 12 - warns * 5 - infos * 1));
+  const score = Math.max(0, Math.min(100, 100 - errors * 14 - warns * 6 - infos * 2));
 
-  return { score, issues, passed: Math.max(0, 19 - issues.length), total: 19 };
+  return { score, issues, passed: total - issues.length, total };
 }
