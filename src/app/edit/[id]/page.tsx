@@ -33,7 +33,7 @@ import {
   type ResumeLink,
   type ResumeSectionId,
 } from "@/lib/resume";
-import { lintResume, type LintReport } from "@/lib/resume-lint";
+import { lintResume, type LintIssue, type LintReport } from "@/lib/resume-lint";
 import { RESUME_TEMPLATES } from "@/lib/templates-data";
 import { downloadFileName } from "@/lib/utils";
 import JdMatchModal from "@/components/JdMatchModal";
@@ -68,6 +68,8 @@ import {
   Sparkles,
   Target,
   ListChecks,
+  Settings2,
+  Info,
   Tag,
   Layout,
 } from "lucide-react";
@@ -134,6 +136,66 @@ function Area({
         onChange={(e) => onChange(e.target.value)}
       />
     </label>
+  );
+}
+
+// ─── Pane settings: the LaTeX editor is opt-in ────────────────────────────────
+
+function PaneSettings({
+  showLatex,
+  open,
+  setOpen,
+  onToggleLatex,
+}: {
+  showLatex: boolean;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  onToggleLatex: (v: boolean) => void;
+}) {
+  return (
+    <div className="relative">
+      <div className="flex h-9 items-center rounded-full bg-muted p-1">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-all hover:bg-background hover:text-foreground hover:shadow-sm"
+          title="Editor settings"
+        >
+          <Settings2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-50 mt-1 w-60 animate-in fade-in zoom-in-95 rounded-lg border bg-popover p-1.5 text-popover-foreground shadow-lg">
+            <div className="px-2.5 py-2">
+              <p className="text-xs font-semibold">Editor</p>
+              <p className="text-[11px] text-muted-foreground">Fine-tune how you work here</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showLatex}
+              onClick={() => onToggleLatex(!showLatex)}
+              className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-accent"
+            >
+              <Code2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-medium">LaTeX editor</span>
+                <span className="block text-[11px] text-muted-foreground">Edit the raw .tex behind the form</span>
+              </span>
+              <span
+                className={`flex h-4 w-7 shrink-0 items-center rounded-full px-0.5 transition-colors ${
+                  showLatex ? "justify-end bg-foreground" : "justify-start bg-muted"
+                }`}
+              >
+                <span className="h-3 w-3 rounded-full bg-background shadow-xs" />
+              </span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -301,16 +363,17 @@ function BulletList({
   return (
     <div>
       <Area label={label} value={value} onChange={onChange} rows={rows} placeholder={placeholder} />
-      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-        <span className={bullets.length > 4 ? "font-medium text-amber-600 dark:text-amber-400" : ""}>
-          {bullets.length}/4 bullets
+      <div className="-mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-b-lg border border-t-0 bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <ListChecks className="h-3 w-3" />
+          <span className={bullets.length > 4 ? "font-medium text-amber-600 dark:text-amber-400" : ""}>
+            {bullets.length}/4 bullets
+          </span>
         </span>
         {unquantified > 0 && (
-          <span className="text-amber-600/90 dark:text-amber-400/90">
-            {unquantified} without a number
-          </span>
+          <span className="text-amber-600/90 dark:text-amber-400/90">{unquantified} need a number</span>
         )}
-        <span>wrap **words** to bold</span>
+        <span className="ml-auto hidden sm:inline">**bold** key phrases</span>
       </div>
     </div>
   );
@@ -320,39 +383,42 @@ function BulletList({
 
 function ResumeChecks({ report }: { report: LintReport }) {
   const tone =
-    report.score >= 85 ? "text-emerald-600 dark:text-emerald-400" : report.score >= 60 ? "text-amber-600 dark:text-amber-400" : "text-destructive";
+    report.score >= 85
+      ? { text: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500", ring: "border-emerald-500/40" }
+      : report.score >= 60
+        ? { text: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500", ring: "border-amber-500/40" }
+        : { text: "text-destructive", bg: "bg-destructive", ring: "border-destructive/40" };
+  const dot: Record<LintIssue["severity"], string> = {
+    error: "bg-destructive",
+    warn: "bg-amber-500",
+    info: "bg-muted-foreground/40",
+  };
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <span className={`text-2xl font-semibold tabular-nums ${tone}`}>{report.score}</span>
-        <div className="flex-1">
-          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-            <div className={`h-full rounded-full ${tone.replace("text-", "bg-")}`} style={{ width: `${report.score}%` }} />
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2.5">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-background ${tone.ring} ${tone.text}`}>
+          <span className="text-sm font-semibold tabular-nums">{report.score}</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-foreground">
             {report.issues.length === 0
-              ? "All checks passed"
-              : `${report.passed}/${report.total} checks passed`}
+              ? "Placement checklist passed"
+              : `${report.total - report.issues.length} of ${report.total} checks passed`}
           </p>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
+            <div className={`h-full rounded-full ${tone.bg}`} style={{ width: `${report.score}%` }} />
+          </div>
         </div>
       </div>
 
       {report.issues.length > 0 && (
-        <ul className="space-y-2">
+        <ul className="space-y-px overflow-hidden rounded-lg border">
           {report.issues.map((issue) => (
-            <li key={issue.id} className="flex gap-2 text-xs">
-              <span
-                className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                  issue.severity === "error"
-                    ? "bg-destructive"
-                    : issue.severity === "warn"
-                      ? "bg-amber-500"
-                      : "bg-muted-foreground/50"
-                }`}
-              />
-              <div>
+            <li key={issue.id} className="flex gap-2.5 bg-card px-3 py-2.5 text-xs">
+              <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dot[issue.severity]}`} />
+              <div className="min-w-0">
                 <p className="font-medium text-foreground">{issue.title}</p>
-                <p className="text-muted-foreground">{issue.detail}</p>
+                <p className="mt-0.5 leading-relaxed text-muted-foreground">{issue.detail}</p>
               </div>
             </li>
           ))}
@@ -775,9 +841,11 @@ type MobileView = "form" | "latex" | "preview";
 function MobileViewToggle({
   value,
   onChange,
+  showLatex,
 }: {
   value: MobileView;
   onChange: (v: MobileView) => void;
+  showLatex: boolean;
 }) {
   return (
     <Tabs
@@ -790,10 +858,12 @@ function MobileViewToggle({
           <SlidersHorizontal className="h-3 w-3" />
           <span>Form</span>
         </TabsTrigger>
-        <TabsTrigger value="latex" className="h-7 rounded-full px-3 text-xs gap-1.5">
-          <Code2 className="h-3 w-3" />
-          <span>LaTeX</span>
-        </TabsTrigger>
+        {showLatex && (
+          <TabsTrigger value="latex" className="h-7 rounded-full px-3 text-xs gap-1.5">
+            <Code2 className="h-3 w-3" />
+            <span>LaTeX</span>
+          </TabsTrigger>
+        )}
         <TabsTrigger value="preview" className="h-7 rounded-full px-3 text-xs gap-1.5">
           <Eye className="h-3 w-3" />
           <span>Preview</span>
@@ -882,6 +952,8 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const [atsKey, setAtsKey] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [showLatex, setShowLatex] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState<PreviewInfo | null>(null);
@@ -906,13 +978,24 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
         setResume({ ...r, customLatex: r.customLatex || r.content == null });
         setRaw(r.latexSource);
         if (r.content != null) setContent(parseContent(r.content));
-        if (r.content == null || r.customLatex) setTab("latex");
+        if (r.content == null || r.customLatex) {
+          // A resume already stored as hand-edited LaTeX stays reachable,
+          // otherwise the form would silently overwrite it.
+          setShowLatex(true);
+          setTab("latex");
+        }
       })
       .catch(() => {
         if (active) setSaveMsg("Unable to load resume. Please reload.");
       });
     return () => { active = false; };
   }, [id, user?.id]);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("resumay:latex") === "on") setShowLatex(true);
+    } catch {}
+  }, []);
 
   const markDirty = () => {
     revision.current += 1;
@@ -1188,21 +1271,41 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
             ) : (
               <span className="text-xs font-medium text-muted-foreground">LaTeX source</span>
             )}
-            {/* Mobile: one Form / LaTeX / Preview toggle next to the template switcher */}
-            <MobileViewToggle value={mobileValue} onChange={changeMobileView} />
-            {/* Desktop: split is always visible, so only Form / LaTeX */}
-            <Tabs value={tab} onValueChange={(v) => setTab(v as "form" | "latex")} className="hidden md:flex">
-              <TabsList className="h-9 rounded-full p-1 bg-muted">
-                <TabsTrigger value="form" className="h-7 rounded-full px-3 text-xs gap-1.5">
-                  <SlidersHorizontal className="h-3 w-3" />
-                  <span>Form</span>
-                </TabsTrigger>
-                <TabsTrigger value="latex" className="h-7 rounded-full px-3 text-xs gap-1.5">
-                  <Code2 className="h-3 w-3" />
-                  <span>LaTeX</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex items-center gap-2">
+              {/* Mobile: Form / (LaTeX) / Preview — LaTeX only when enabled */}
+              <MobileViewToggle value={mobileValue} onChange={changeMobileView} showLatex={showLatex} />
+              {/* Desktop: the split is always visible, so only Form / LaTeX */}
+              {showLatex && (
+                <Tabs value={tab} onValueChange={(v) => setTab(v as "form" | "latex")} className="hidden md:flex">
+                  <TabsList className="h-9 rounded-full p-1 bg-muted">
+                    <TabsTrigger value="form" className="h-7 rounded-full px-3 text-xs gap-1.5">
+                      <SlidersHorizontal className="h-3 w-3" />
+                      <span>Form</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="latex" className="h-7 rounded-full px-3 text-xs gap-1.5">
+                      <Code2 className="h-3 w-3" />
+                      <span>LaTeX</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
+              <PaneSettings
+                showLatex={showLatex}
+                open={settingsOpen}
+                setOpen={setSettingsOpen}
+                onToggleLatex={(v) => {
+                  setShowLatex(v);
+                  try {
+                    localStorage.setItem("resumay:latex", v ? "on" : "off");
+                  } catch {}
+                  if (!v) {
+                    setTab("form");
+                    setMobileView("form");
+                  }
+                  setSettingsOpen(false);
+                }}
+              />
+            </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {tab === "form" ? (
@@ -1213,6 +1316,13 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                     <AlertCircle className="h-3.5 w-3.5" />
                     Custom LaTeX active. Form edits will overwrite raw edits.
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsOpen(true)}
+                    className="shrink-0 rounded-full border border-destructive/30 px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-destructive/10"
+                  >
+                    Editor settings
+                  </button>
                 </div>
               )}
 
@@ -1337,8 +1447,9 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 if (secId === "achievements") {
                   return (
                     <Section key="achievements" title="Achievements" icon={<Star className="h-3.5 w-3.5" />} count={(content.achievements ?? []).length} onSave={() => void save()} saving={saving}>
-                      <p className="text-[11px] text-muted-foreground">
-                        Competitive ratings, hackathons, open source and research — quantify the rank, e.g. “Ranked 31 among 1,200+ teams”.
+                      <p className="flex items-start gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                        <Info className="mt-0.5 h-3 w-3 shrink-0" />
+                        Competitive ratings, hackathons, open source and research. Quantify the rank — e.g. “Ranked 31 among 1,200+ teams”.
                       </p>
                       <Entries
                         items={content.achievements ?? []}
@@ -1460,7 +1571,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               ) : (
                 <span className="text-xs font-medium text-muted-foreground">LaTeX source</span>
               )}
-              <MobileViewToggle value={mobileValue} onChange={changeMobileView} />
+              <MobileViewToggle value={mobileValue} onChange={changeMobileView} showLatex={showLatex} />
             </div>
             <span className="hidden text-xs font-medium text-muted-foreground md:block">Preview</span>
             <FitAssistant
