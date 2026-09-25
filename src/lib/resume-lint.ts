@@ -42,7 +42,11 @@ const GENERIC = /^(worked on|worked with|responsible for|helped (on|with)?|assis
 
 const hasNumber = (s: string) => /\d/.test(s);
 
-export function lintResume(c: ResumeContent, pages: number | null): LintReport {
+export function lintResume(
+  c: ResumeContent,
+  pages: number | null,
+  templateTraits: string[] = [],
+): LintReport {
   const issues: LintIssue[] = [];
   let total = 0;
   const check = (ok: boolean, severity: LintSeverity, id: string, title: string, detail: string) => {
@@ -59,13 +63,20 @@ export function lintResume(c: ResumeContent, pages: number | null): LintReport {
     ...proj.flatMap((p) => bulletLines(p.bullets).map((b) => ({ b, where: p.name }))),
   ];
 
-  // Length
+  // Length — the budget follows the template: a 2-page layout is not penalised
+  // for using the second page it was designed around.
+  const pageBudget = templateTraits.some((t) => /2\s*-?\s*pag/i.test(t)) ? 2 : 1;
+  const overBudget = pages != null && pages > pageBudget;
   check(
-    pages == null || pages <= 1,
-    "warn",
+    !overBudget,
+    pageBudget === 2 ? "info" : "warn",
     "pages",
-    pages && pages > 1 ? `Resume runs to ${pages} pages` : "Resume length",
-    "One page is the norm. Two pages is usually only worth it for senior candidates with deep experience — otherwise tighten or cut.",
+    overBudget
+      ? `Resume runs to ${pages} pages`
+      : "Resume length",
+    overBudget
+      ? `This layout is designed for ${pageBudget === 2 ? "two" : "one"} page${pageBudget > 1 ? "s" : ""}. ${pageBudget === 2 ? "Move to a one-page layout or tighten the spacing." : "Try a tighter layout, then cut the weakest bullet."}`
+      : "Length is within this layout's budget.",
   );
 
   // Contact

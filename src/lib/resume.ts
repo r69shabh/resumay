@@ -48,7 +48,9 @@ export type TemplateConfig = {
   headerSubtitle?: string;
   sectionOrder?: ResumeSectionId[];
   accent?: string;
-  density?: "comfortable" | "compact";
+  density?: "roomy" | "comfortable" | "compact" | "tight";
+  headerRule?: boolean;
+  sectionRules?: boolean;
 };
 
 export type ResumeContent = {
@@ -78,12 +80,16 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
     sectionOrder: ResumeSectionId[];
     headerSubtitle: string;
     accent: string;
-    density: "comfortable" | "compact";
+    density: "roomy" | "comfortable" | "compact" | "tight";
+    headerRule: boolean;
+    sectionRules: boolean;
   }
 > = {
   swe: {
     templateId: "swe",
     density: "comfortable",
+    headerRule: true,
+    sectionRules: true,
     accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
@@ -93,6 +99,8 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   fullstack: {
     templateId: "fullstack",
     density: "comfortable",
+    headerRule: true,
+    sectionRules: true,
     accent: "1D4ED8",
     fontFamily: "sans",
     headerLayout: "left",
@@ -102,6 +110,8 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   aiml: {
     templateId: "aiml",
     density: "comfortable",
+    headerRule: true,
+    sectionRules: true,
     accent: "0E7490",
     fontFamily: "sans",
     headerLayout: "left",
@@ -111,6 +121,8 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   pm: {
     templateId: "pm",
     density: "comfortable",
+    headerRule: true,
+    sectionRules: true,
     accent: "6D28D9",
     fontFamily: "sans",
     headerLayout: "left",
@@ -120,6 +132,8 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   finance: {
     templateId: "finance",
     density: "comfortable",
+    headerRule: true,
+    sectionRules: true,
     accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
@@ -129,6 +143,8 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   consulting: {
     templateId: "consulting",
     density: "comfortable",
+    headerRule: true,
+    sectionRules: true,
     accent: "334155",
     fontFamily: "sans",
     headerLayout: "left",
@@ -138,6 +154,8 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   newgrad: {
     templateId: "newgrad",
     density: "comfortable",
+    headerRule: true,
+    sectionRules: true,
     accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
@@ -147,11 +165,35 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
   compact: {
     templateId: "compact",
     density: "comfortable",
+    headerRule: false,
+    sectionRules: false,
     accent: "047857",
     fontFamily: "sans",
     headerLayout: "split",
     sectionOrder: ["skills", "experience", "projects", "achievements", "education", "certificates", "extra"],
     headerSubtitle: "Software Engineer",
+  },
+  design: {
+    templateId: "design",
+    fontFamily: "sans",
+    headerLayout: "left",
+    sectionOrder: ["experience", "projects", "skills", "education", "certificates", "extra"],
+    headerSubtitle: "Product Designer",
+    accent: "BE185D",
+    density: "comfortable",
+    headerRule: true,
+    sectionRules: true,
+  },
+  research: {
+    templateId: "research",
+    fontFamily: "serif",
+    headerLayout: "left",
+    sectionOrder: ["summary", "education", "experience", "projects", "achievements", "skills", "certificates", "extra"],
+    headerSubtitle: "",
+    accent: "4338CA",
+    density: "roomy",
+    headerRule: true,
+    sectionRules: true,
   },
   campus: {
     templateId: "campus",
@@ -161,10 +203,14 @@ export const DEFAULT_TEMPLATE_CONFIGS: Record<
     headerSubtitle: "",
     accent: "000000",
     density: "compact",
+    headerRule: true,
+    sectionRules: true,
   },
   blank: {
     templateId: "blank",
     density: "comfortable",
+    headerRule: false,
+    sectionRules: false,
     accent: "000000",
     fontFamily: "serif",
     headerLayout: "center",
@@ -180,7 +226,9 @@ export function getResolvedTemplateConfig(c: ResumeContent): {
   sectionOrder: ResumeSectionId[];
   headerSubtitle: string;
   accent: string;
-  density: "comfortable" | "compact";
+  density: "roomy" | "comfortable" | "compact" | "tight";
+  headerRule: boolean;
+  sectionRules: boolean;
 } {
   const tid = c.template || c.templateConfig?.templateId || "swe";
   const def = DEFAULT_TEMPLATE_CONFIGS[tid] || DEFAULT_TEMPLATE_CONFIGS.swe;
@@ -189,7 +237,9 @@ export function getResolvedTemplateConfig(c: ResumeContent): {
     fontFamily: c.templateConfig?.fontFamily || def.fontFamily,
     headerLayout: c.templateConfig?.headerLayout || def.headerLayout,
     accent: c.templateConfig?.accent || def.accent || "000000",
-    density: c.templateConfig?.density || "comfortable",
+    density: c.templateConfig?.density || def.density,
+    headerRule: c.templateConfig?.headerRule ?? def.headerRule,
+    sectionRules: c.templateConfig?.sectionRules ?? def.sectionRules,
     headerSubtitle:
       c.templateConfig?.headerSubtitle !== undefined
         ? c.templateConfig.headerSubtitle
@@ -369,6 +419,19 @@ const TITLE_OVERRIDES: Record<string, Partial<Record<ResumeSectionId, string>>> 
     skills: "Skills and Relevant Coursework",
     extra: "Leadership and Activities",
   },
+  design: {
+    experience: "Experience",
+    projects: "Selected Work",
+    skills: "Toolkit",
+    education: "Education",
+  },
+  research: {
+    summary: "Research Focus",
+    experience: "Positions",
+    projects: "Research Projects",
+    achievements: "Honors & Publications",
+    skills: "Research Skills",
+  },
   campus: {
     education: "Education",
     experience: "Internships",
@@ -453,6 +516,11 @@ export function renderLatex(c: ResumeContent): string {
   const skills = c.skills.filter((s) => s.label.trim() || s.items.trim());
   const extra = c.extra.filter(nonEmpty);
   const achievements = (c.achievements ?? []).filter(nonEmpty);
+
+  const headerRule = `\\vspace{-8pt}
+\\noindent\\textcolor{accent}{\\rule{\\textwidth}{0.9pt}}
+\\vspace{-6pt}
+`;
 
   const section = (title: string, body: string) =>
     body ? `%---------- ${title.toUpperCase()} ----------\n\\section{${escapeLatex(title)}}\n${body}\n` : "";
@@ -563,11 +631,16 @@ export function renderLatex(c: ResumeContent): string {
   }
 
   // Compact density reuses the compact template's tighter page box.
-  const tightBox = config.templateId === "compact" || config.density === "compact";
-  const secPad = config.density === "compact" ? "-6pt" : "-4pt";
-  const itemPad = config.density === "compact" ? "-3pt" : "-2pt";
-  const listPad = config.density === "compact" ? "-7pt" : "-5pt";
-  const subPad = config.density === "compact" ? "-9pt" : "-7pt";
+  const isTight = config.density === "tight";
+  const isRoomy = config.density === "roomy";
+  const isCompact = config.density === "compact" || isTight;
+  const tightBox = config.templateId === "compact" || isCompact;
+  const secPad = isTight ? "-8pt" : isCompact ? "-6pt" : isRoomy ? "-2pt" : "-4pt";
+  const itemPad = isTight ? "-4pt" : isCompact ? "-3pt" : isRoomy ? "0pt" : "-2pt";
+  const listPad = isTight ? "-9pt" : isCompact ? "-7pt" : isRoomy ? "-3pt" : "-5pt";
+  const subPad = isTight ? "-11pt" : isCompact ? "-9pt" : isRoomy ? "-5pt" : "-7pt";
+  // Tight shrinks the type a step so stubborn resumes still reach one page.
+  const bodySize = isTight ? "\\fontsize{10.4}{12.2}\\selectfont\n" : "";
 
   const marginSetup =
     tightBox
@@ -588,14 +661,15 @@ export function renderLatex(c: ResumeContent): string {
 \\addtolength{\\topmargin}{-.5in}
 \\addtolength{\\textheight}{1.0in}`;
 
+  const rule = config.sectionRules ? "[\\color{accent}\\titlerule \\vspace{-5pt}]" : "";
   const titleFormat =
     config.fontFamily === "sans"
       ? `\\titleformat{\\section}{
   \\vspace{${secPad}}\\bfseries\\raggedright\\large
-}{}{0em}{}[\\color{accent}\\titlerule \\vspace{-5pt}]`
+}{}{0em}{}${rule}`
       : `\\titleformat{\\section}{
   \\vspace{${secPad}}\\scshape\\raggedright\\large
-}{}{0em}{}[\\color{accent}\\titlerule \\vspace{-5pt}]`;
+}{}{0em}{}${rule}`;
 
   const fontPkg =
     config.fontFamily === "sans"
@@ -644,7 +718,7 @@ ${titleFormat}
 \\newcommand{\\resumeItemListEnd}{\\end{itemize}\\vspace{${listPad}}}
 
 \\begin{document}
-
+${bodySize}${config.headerRule ? headerRule : ""}
 ${heading}
 ${renderedSections.join("\n")}
 \\end{document}

@@ -534,7 +534,7 @@ function Entries<T>({
   addLabel: string;
   titleFn?: (item: T, index: number) => string;
 }) {
-  const dragFrom = useRef<number | null>(null);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
   const move = (from: number, to: number) => {
@@ -560,12 +560,12 @@ function Entries<T>({
             onDragLeave={() => setDragOver((v) => (v === i ? null : v))}
             onDrop={(e) => {
               e.preventDefault();
-              move(dragFrom.current ?? i, i);
-              dragFrom.current = null;
+              move(dragFrom ?? i, i);
+              setDragFrom(null);
               setDragOver(null);
             }}
             className={`space-y-3 rounded-lg transition-colors ${i > 0 ? "border-t pt-4" : ""} ${
-              dragOver === i && dragFrom.current !== i ? "bg-accent/40 ring-1 ring-foreground/15" : ""
+              dragOver === i && dragFrom !== i ? "bg-accent/40 ring-1 ring-foreground/15" : ""
             }`}
           >
             <div className="flex items-center justify-between">
@@ -573,12 +573,12 @@ function Entries<T>({
                 <span
                   draggable
                   onDragStart={(e) => {
-                    dragFrom.current = i;
+                    setDragFrom(i);
                     e.dataTransfer.effectAllowed = "move";
                     e.dataTransfer.setData("text/plain", String(i));
                   }}
                   onDragEnd={() => {
-                    dragFrom.current = null;
+                    setDragFrom(null);
                     setDragOver(null);
                   }}
                   className="cursor-grab touch-none text-muted-foreground/60 transition-colors hover:text-foreground active:cursor-grabbing"
@@ -846,8 +846,9 @@ function TemplateSwitcher({
   onPick: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const current =
-    RESUME_TEMPLATES.find((t) => t.id === templateId)?.name || "Template";
+  const meta = RESUME_TEMPLATES.find((t) => t.id === templateId);
+  const current = meta?.name || "Template";
+  const traits = meta?.traits ?? [];
   return (
     <div className="relative">
       <div className="flex h-9 items-center rounded-full bg-muted p-1">
@@ -855,7 +856,7 @@ function TemplateSwitcher({
           type="button"
           onClick={() => setOpen((o) => !o)}
           className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-all hover:bg-background hover:text-foreground hover:shadow-sm"
-          title={`Change template (current: ${current})`}
+          title={`Change template — current: ${current}${traits.length ? ` (${traits.join(", ")})` : ""}`}
         >
           <Layout className="h-3.5 w-3.5" />
         </button>
@@ -890,8 +891,15 @@ function TemplateSwitcher({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{tmpl.name}</div>
-                    <div className="text-[10px] text-muted-foreground font-normal truncate">
-                      {tmpl.layoutInfo.typography.split(" ")[0]} · {tmpl.layoutInfo.priority}
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      {tmpl.traits.map((t) => (
+                        <span
+                          key={t}
+                          className="rounded-full bg-muted px-1.5 py-px text-[9px] font-medium text-muted-foreground"
+                        >
+                          {t}
+                        </span>
+                      ))}
                     </div>
                   </div>
                   {isActive && (
@@ -948,6 +956,40 @@ function MobileViewToggle({
 
 // ─── One-page fit assistant: badge + tighten + cut hint ─────────────────────────
 
+const DENSITIES = [
+  { id: "roomy", label: "Roomy" },
+  { id: "comfortable", label: "Standard" },
+  { id: "compact", label: "Compact" },
+  { id: "tight", label: "Tight" },
+] as const;
+
+function DensityPill({
+  density,
+  onDensity,
+}: {
+  density: "roomy" | "comfortable" | "compact" | "tight";
+  onDensity: (d: "roomy" | "comfortable" | "compact" | "tight") => void;
+}) {
+  return (
+    <span className="flex items-center gap-0.5 rounded-full bg-muted p-0.5" title="Spacing">
+      {DENSITIES.map((d) => (
+        <button
+          key={d.id}
+          type="button"
+          onClick={() => onDensity(d.id)}
+          className={`cursor-pointer rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+            density === d.id
+              ? "bg-background text-foreground shadow-xs"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {d.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 function FitAssistant({
   pages,
   busy,
@@ -955,12 +997,14 @@ function FitAssistant({
   density,
   content,
   onTighten,
+  onDensity,
 }: {
   pages: number | null;
   busy: boolean;
   failed: boolean;
-  density: "comfortable" | "compact";
+  density: "roomy" | "comfortable" | "compact" | "tight";
   content: ResumeContent;
+  onDensity: (d: "roomy" | "comfortable" | "compact" | "tight") => void;
   onTighten: () => void;
 }) {
   if (pages == null || failed) return null;
@@ -982,16 +1026,17 @@ function FitAssistant({
       >
         {pages === 1 ? "1 page" : `${pages} pages`}
       </span>
-      {over && !busy && density === "comfortable" && (
+      {over && !busy && density !== "tight" && (
         <button
           type="button"
           onClick={onTighten}
-          className="rounded-full border px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-accent cursor-pointer"
+          className="cursor-pointer rounded-full border px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-accent"
         >
           Tighten to fit
         </button>
       )}
-      {over && !busy && density === "compact" && target.n > 0 && (
+      {!busy && <DensityPill density={density} onDensity={onDensity} />}
+      {over && !busy && density === "tight" && target.n > 0 && (
         <span
           className="max-w-[220px] truncate text-[11px] text-muted-foreground"
           title="Spacing is already tight — remove your lowest-value bullets"
@@ -1039,9 +1084,13 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const onInfo = useCallback((i: PreviewInfo) => setInfo(i), []);
 
   const resolvedConfig = useMemo(() => getResolvedTemplateConfig(content), [content]);
+  const templateMeta = useMemo(
+    () => RESUME_TEMPLATES.find((t) => t.id === (content.template || "swe")),
+    [content.template],
+  );
   const lintReport = useMemo(
-    () => lintResume(content, info?.pages ?? null),
-    [content, info?.pages],
+    () => lintResume(content, info?.pages ?? null, templateMeta?.traits),
+    [content, info?.pages, templateMeta],
   );
 
   useEffect(() => {
@@ -1774,16 +1823,28 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               failed={info?.failed ?? false}
               density={resolvedConfig.density}
               content={content}
+              onDensity={(d) =>
+                touch({
+                  ...content,
+                  templateConfig: { ...content.templateConfig, density: d },
+                })
+              }
               onTighten={() => {
+                const next =
+                  resolvedConfig.density === "roomy"
+                    ? "comfortable"
+                    : resolvedConfig.density === "comfortable"
+                      ? "compact"
+                      : "tight";
                 touch({
                   ...content,
                   templateConfig: {
                     ...content.templateConfig,
                     templateId: resolvedConfig.templateId,
-                    density: "compact",
+                    density: next,
                   },
                 });
-                toast("Tightened spacing — recompiling");
+                toast(`Tightened to ${next} — recompiling`);
               }}
             />
             {/* Desktop only: no ATS view on phones */}

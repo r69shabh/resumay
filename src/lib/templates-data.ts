@@ -1,13 +1,14 @@
 import { type ResumeContent } from "./resume";
 
-export type TemplateCategory = "all" | "engineering" | "business" | "product" | "student";
+export type TemplateCategory = "all" | "engineering" | "product" | "business" | "design" | "research" | "student";
 
 export type ResumeTemplate = {
   id: string;
   name: string;
-  category: "engineering" | "business" | "product" | "student";
+  category: "engineering" | "product" | "business" | "design" | "research" | "student";
   roleTag: string;
   badge: string;
+  traits: string[];
   description: string;
   highlights: string[];
   layoutInfo: {
@@ -26,6 +27,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "engineering",
     roleTag: "SWE",
     badge: "Most Popular",
+    traits: ["1 page", "Classic serif", "ATS-safe"],
     description: "Battle-tested Silicon Valley engineering standard with centered header and experience-first flow.",
     highlights: ["Experience First", "Classic Serif", "Centered Header", "Quantified Metrics"],
     layoutInfo: {
@@ -114,6 +116,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "engineering",
     roleTag: "Fullstack",
     badge: "Tech Minimal",
+    traits: ["1 page", "Modern sans", "Accent colour"],
     description: "Sleek, left-aligned modern sans-serif template emphasizing web UI, APIs, and end-to-end delivery.",
     highlights: ["Modern Sans-Serif", "Left Header", "Summary + Exp", "Modern Startups"],
     layoutInfo: {
@@ -182,6 +185,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "engineering",
     roleTag: "AI/ML",
     badge: "High Demand",
+    traits: ["1 page", "Skills first", "Research tone"],
     description: "Skills and tooling upfront for instant keyword matching across PyTorch, LLMs, and high-performance inference.",
     highlights: ["Skills Upfront", "Research & LLMs", "Modern Sans-Serif", "High-Throughput ML"],
     layoutInfo: {
@@ -254,6 +258,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "product",
     roleTag: "PM",
     badge: "Business & Tech",
+    traits: ["1 page", "Outcome-led", "Minimal rules"],
     description: "Executive header with subtitle, highlighting revenue impact, roadmaps, and cross-functional leadership.",
     highlights: ["Executive Subhead", "ARR & Growth", "Core Competencies", "Modern Sans-Serif"],
     layoutInfo: {
@@ -322,6 +327,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "business",
     roleTag: "Finance",
     badge: "Wall Street Classic",
+    traits: ["1 page", "Dense", "Header rule"],
     description: "Ivy League & Wall Street standard. Centered serif layout with education upfront, transaction metrics, and financial modeling skills.",
     highlights: ["Education First", "Classic Serif", "Deal & M&A Bullets", "CFA / FINRA Ready"],
     layoutInfo: {
@@ -392,6 +398,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "business",
     roleTag: "Consulting",
     badge: "MBB Standard",
+    traits: ["2 pages", "Roomy", "Case-led"],
     description: "Structured strategy format. Clean sans-serif with executive summary, engagement case outcomes, cost reduction, and market entry.",
     highlights: ["Executive Summary", "Modern Sans", "Hypothesis-Driven Bullets", "Quantified ROI"],
     layoutInfo: {
@@ -460,6 +467,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "student",
     roleTag: "New Grad",
     badge: "Early Career",
+    traits: ["1 page", "Education first", "Compact"],
     description: "Education-first layout with high emphasis on academic coursework, hackathons, and clubs.",
     highlights: ["Education First", "Coursework & Honors", "Hackathons", "Classic Serif"],
     layoutInfo: {
@@ -529,6 +537,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "engineering",
     roleTag: "Compact",
     badge: "Dense Single-Page",
+    traits: ["1 page", "Extra tight", "10.4pt type"],
     description: "High information density layout with split 2-column header and tight margins to fit maximum content on one page.",
     highlights: ["Split Header", "Tight 0.4in Margins", "Skills Top", "Dense Layout"],
     layoutInfo: {
@@ -595,6 +604,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "student",
     roleTag: "",
     badge: "Clean Slate",
+    traits: ["Minimal", "No defaults", "Your rules"],
     description: "Start completely from scratch with a clean, unpopulated layout.",
     highlights: ["Zero Defaults", "Completely Custom", "Minimal"],
     layoutInfo: {
@@ -626,6 +636,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "student",
     roleTag: "SDE",
     badge: "1-Page Rule",
+    traits: ["1 page", "Tight", "Placements"],
     description:
       "Campus-hire order: Education, Internships, Projects, Achievements, Skills. Compact by default so it lands on one page.",
     highlights: [
@@ -724,6 +735,167 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
       extra: [
         { title: "Coding Club", detail: "Technical Lead, ran **3** internal hackathons" },
       ],
+    },
+  },
+  {
+    id: "design",
+    name: "Product Design",
+    category: "design",
+    roleTag: "Design",
+    badge: "Portfolio First",
+    traits: ["1 page", "Roomy", "Case links"],
+    description:
+      "Case-study driven layout for product designers: work history first, every project links straight to the case study.",
+    highlights: ["Case Links", "Tool Fluency", "Outcome Bullets"],
+    layoutInfo: {
+      typography: "Modern Sans-Serif",
+      headerStyle: "Left-Aligned Modern",
+      priority: "Experience First",
+      sequence: ["Experience", "Projects", "Skills", "Education"],
+    },
+    content: {
+      template: "design",
+      templateConfig: { templateId: "design", density: "comfortable", headerRule: true, sectionRules: true },
+      name: "Maya Iyer",
+      phone: "+1 555 2200",
+      email: "maya@studio.com",
+      location: "Brooklyn, NY",
+      links: [
+        { label: "Portfolio", url: "https://mayaiyer.design" },
+        { label: "LinkedIn", url: "https://linkedin.com/in/mayaiyer" },
+        { label: "Figma", url: "https://figma.com/@mayaiyer" },
+      ],
+      summary: "",
+      education: [
+        {
+          school: "Rhode Island School of Design",
+          degree: "BFA, Graphic Design",
+          location: "Providence, RI",
+          start: "2015",
+          end: "2019",
+          grade: "Honors",
+        },
+      ],
+      experience: [
+        {
+          title: "Senior Product Designer",
+          company: "Meridian",
+          location: "New York, NY",
+          start: "2021",
+          end: "Present",
+          bullets:
+            "Redesigned the onboarding flow in **Figma** and **React**, lifting activation **27%** across **40K** monthly users.\nRan **14** usability studies, cutting support tickets about setup by **41%**.\nBuilt a design system in **Figma** adopted by **6** product teams, halving new-feature design time.",
+        },
+      ],
+      projects: [
+        {
+          name: "Atlas Design System",
+          tech: "Figma, Tokens, Storybook",
+          date: "2023",
+          url: "https://mayaiyer.design/atlas",
+          bullets:
+            "Shipped **120** components with documented usage rules, adopted by **6** teams.\nCut UI defect reports **33%** in the first quarter after rollout.",
+        },
+        {
+          name: "Checkout Reimagined",
+          tech: "Figma, Prototyping, User Testing",
+          date: "2022",
+          url: "https://mayaiyer.design/checkout",
+          bullets:
+            "Prototyped and tested **5** checkout variants; the shipped version raised conversion **12%**.",
+        },
+      ],
+      achievements: [],
+      certificates: [],
+      skills: [
+        { label: "Design", items: "Interaction Design, Visual Design, Prototyping, Design Systems" },
+        { label: "Research", items: "Usability Testing, Interviews, Journey Mapping" },
+        { label: "Tools", items: "Figma, FigJam, Adobe CC, Framer" },
+      ],
+      extra: [],
+    },
+  },
+  {
+    id: "research",
+    name: "Research & Academia",
+    category: "research",
+    roleTag: "Research",
+    badge: "2-Page Friendly",
+    traits: ["2 pages", "Roomy", "Publication list"],
+    description:
+      "Roomier multi-page layout for researchers and academics: publications and methods get the space they need.",
+    highlights: ["2 Page Budget", "Methods", "Publication Space"],
+    layoutInfo: {
+      typography: "Serif (Computer Modern)",
+      headerStyle: "Left-Aligned Modern",
+      priority: "Balanced",
+      sequence: ["Summary", "Education", "Experience", "Projects", "Achievements", "Skills"],
+    },
+    content: {
+      template: "research",
+      templateConfig: { templateId: "research", density: "roomy", headerRule: true, sectionRules: true },
+      name: "Dr. Elena Vasquez",
+      phone: "+1 555 3311",
+      email: "evasquez@lab.edu",
+      location: "Cambridge, MA",
+      links: [
+        { label: "Google Scholar", url: "https://scholar.google.com/citations?user=elena" },
+        { label: "GitHub", url: "https://github.com/evasquez" },
+        { label: "Lab", url: "https://nlp-lab.edu" },
+      ],
+      summary:
+        "Research scientist working on efficient retrieval and evaluation for long-context language models.",
+      education: [
+        {
+          school: "MIT",
+          degree: "PhD, Computer Science",
+          location: "Cambridge, MA",
+          start: "2019",
+          end: "2024",
+          grade: "Thesis: Retrieval under compute budgets",
+        },
+        {
+          school: "University of Washington",
+          degree: "B.S. Computer Science",
+          location: "Seattle, WA",
+          start: "2015",
+          end: "2019",
+          grade: "3.9/4.0",
+        },
+      ],
+      experience: [
+        {
+          title: "Postdoctoral Researcher",
+          company: "MIT CSAIL",
+          location: "Cambridge, MA",
+          start: "2024",
+          end: "Present",
+          bullets:
+            "Designed a retrieval benchmark covering **9** domains, adopted by **3** external labs.\nReduced inference cost **46%** with a distillation pipeline that held accuracy within **1.2** points.\nMentored **5** graduate students; **2** first-author publications.",
+        },
+      ],
+      projects: [
+        {
+          name: "LongBench-Retrieve",
+          tech: "PyTorch, Hugging Face, Ray",
+          date: "2024",
+          url: "https://github.com/evasquez/longbench-retrieve",
+          bullets:
+            "Open-sourced a **12K**-example evaluation suite; **380** stars and used in **7** papers.",
+        },
+      ],
+      achievements: [
+        { title: "ACL 2025", detail: "Best Paper Award, **1 of 1,900** submissions" },
+        { title: "Publications", detail: "**6** peer-reviewed, **1,240** citations" },
+        { title: "Reviewing", detail: "Reviewer for ACL, EMNLP and TMLR" },
+      ],
+      certificates: [],
+      skills: [
+        { label: "Research", items: "Information Retrieval, Evaluation, Model Distillation" },
+        { label: "Methods", items: "Benchmark Design, Ablation Studies, Statistical Analysis" },
+        { label: "Tools", items: "PyTorch, Hugging Face, Ray, LaTeX, Git" },
+      ],
+      extra: [],
     },
   },
 ];

@@ -978,8 +978,10 @@ function HomeInner() {
                   [
                     { id: "all", label: "All" },
                     { id: "engineering", label: "Engineering" },
-                    { id: "business", label: "Finance" },
                     { id: "product", label: "Product" },
+                    { id: "business", label: "Business" },
+                    { id: "design", label: "Design" },
+                    { id: "research", label: "Research" },
                     { id: "student", label: "Student" },
                   ] as const
                 ).map((cat) => (
