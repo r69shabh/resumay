@@ -276,6 +276,29 @@ const lines = (s: string) =>
 
 const nonEmpty = (o: object) => Object.values(o).some((v) => String(v ?? "").trim() !== "");
 
+// A section with nothing in it should not take up space in the editor or the
+// PDF — the renderer already skips empty bodies, this is the shared test.
+export function sectionHasContent(c: ResumeContent, id: ResumeSectionId): boolean {
+  switch (id) {
+    case "summary":
+      return !!c.summary.trim();
+    case "education":
+      return c.education.some(nonEmpty);
+    case "experience":
+      return c.experience.some(nonEmpty);
+    case "projects":
+      return c.projects.some(nonEmpty);
+    case "skills":
+      return c.skills.some((s) => s.label.trim() || s.items.trim());
+    case "achievements":
+      return (c.achievements ?? []).some(nonEmpty);
+    case "certificates":
+      return c.certificates.some(nonEmpty);
+    case "extra":
+      return c.extra.some(nonEmpty);
+  }
+}
+
 // Bold the things recruiters scan for: explicit **highlights**, plus metrics
 // (35%, 240ms, 10K+, 2.1M, 12x) which placement feedback says are always missed.
 const METRIC = /(\d+(?:\.\d+)?\s?(?:%|ms|sec|s|x|×|[KkMmBb]\+?|\+))/g;

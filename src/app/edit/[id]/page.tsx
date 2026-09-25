@@ -29,6 +29,8 @@ import {
   renderLatex,
   renderPlainText,
   getResolvedTemplateConfig,
+  sectionHasContent,
+  DEFAULT_TEMPLATE_CONFIGS,
   type ResumeContent,
   type ResumeLink,
   type ResumeSectionId,
@@ -69,6 +71,7 @@ import {
   Target,
   ListChecks,
   Settings2,
+  GripVertical,
   Info,
   Tag,
   Layout,
@@ -379,6 +382,17 @@ function BulletList({
   );
 }
 
+const SECTION_LABELS: Record<ResumeSectionId, string> = {
+  summary: "Professional summary",
+  education: "Education",
+  experience: "Work Experience",
+  projects: "Projects",
+  skills: "Skills",
+  achievements: "Achievements",
+  certificates: "Certificates",
+  extra: "Extra-curricular",
+};
+
 // ─── Resume checks (campus placement checklist) ───────────────────────────────
 
 function ResumeChecks({ report }: { report: LintReport }) {
@@ -438,6 +452,10 @@ function Section({
   open: defaultOpen = false,
   onSave,
   saving,
+  dragHandle,
+  onDragOver,
+  onDrop,
+  dropActive,
 }: {
   title: string;
   icon?: ReactNode;
@@ -446,15 +464,26 @@ function Section({
   open?: boolean;
   onSave?: () => void;
   saving?: boolean;
+  dragHandle?: ReactNode;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  dropActive?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-xl border bg-card shadow-xs shrink-0">
+    <div
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={`shrink-0 rounded-xl border bg-card shadow-xs transition-colors ${
+        dropActive ? "border-foreground/40 ring-1 ring-foreground/15" : ""
+      }`}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full cursor-pointer items-center gap-3 px-5 py-6 text-base font-medium select-none hover:bg-accent transition-colors text-left rounded-lg"
       >
+        {dragHandle}
         {icon && <span className="text-muted-foreground">{icon}</span>}
         <span className="flex-1">{title}</span>
         {count !== undefined && count > 0 && (
@@ -467,7 +496,7 @@ function Section({
         />
       </button>
       {open && (
-        <div className="flex flex-col gap-4 border-t border-border/40 px-5 py-5">
+        <div className="flex flex-col gap-3 border-t border-border/40 px-5 py-4">
           {children}
           {onSave && (
             <Button
@@ -505,15 +534,59 @@ function Entries<T>({
   addLabel: string;
   titleFn?: (item: T, index: number) => string;
 }) {
+  const dragFrom = useRef<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
+  const move = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange(next);
+  };
+
   return (
     <div className="space-y-4">
       {items.map((item, i) => {
         const itemTitle = titleFn ? titleFn(item, i) : `Entry #${i + 1}`;
         return (
-          <div key={i} className={`space-y-3 ${i > 0 ? "border-t pt-4" : ""}`}>
+          <div
+            key={i}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (dragOver !== i) setDragOver(i);
+            }}
+            onDragLeave={() => setDragOver((v) => (v === i ? null : v))}
+            onDrop={(e) => {
+              e.preventDefault();
+              move(dragFrom.current ?? i, i);
+              dragFrom.current = null;
+              setDragOver(null);
+            }}
+            className={`space-y-3 rounded-lg transition-colors ${i > 0 ? "border-t pt-4" : ""} ${
+              dragOver === i && dragFrom.current !== i ? "bg-accent/40 ring-1 ring-foreground/15" : ""
+            }`}
+          >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-foreground">
-                {itemTitle}
+              <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-foreground">
+                <span
+                  draggable
+                  onDragStart={(e) => {
+                    dragFrom.current = i;
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", String(i));
+                  }}
+                  onDragEnd={() => {
+                    dragFrom.current = null;
+                    setDragOver(null);
+                  }}
+                  className="cursor-grab touch-none text-muted-foreground/60 transition-colors hover:text-foreground active:cursor-grabbing"
+                  title="Drag to reorder"
+                >
+                  <GripVertical className="h-3.5 w-3.5" />
+                </span>
+                <span className="truncate">{itemTitle}</span>
               </span>
               <Button
                 type="button"
@@ -954,6 +1027,10 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
   const [shareOpen, setShareOpen] = useState(false);
   const [showLatex, setShowLatex] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dragSection, setDragSection] = useState<ResumeSectionId | null>(null);
+  const [dropSection, setDropSection] = useState<ResumeSectionId | null>(null);
+  const [revealed, setRevealed] = useState<ResumeSectionId[]>([]);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const [info, setInfo] = useState<PreviewInfo | null>(null);
@@ -996,6 +1073,38 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
       if (localStorage.getItem("resumay:latex") === "on") setShowLatex(true);
     } catch {}
   }, []);
+
+  const sectionOrder = resolvedConfig.sectionOrder;
+  const visibleSections = sectionOrder.filter(
+    (id) => sectionHasContent(content, id) || revealed.includes(id),
+  );
+  const hiddenSections = sectionOrder.filter(
+    (id) => !sectionHasContent(content, id) && !revealed.includes(id),
+  );
+
+  const moveSection = (from: ResumeSectionId, to: ResumeSectionId) => {
+    if (from === to) return;
+    const next = [...sectionOrder];
+    const fi = next.indexOf(from);
+    const ti = next.indexOf(to);
+    if (fi < 0 || ti < 0) return;
+    next.splice(fi, 1);
+    next.splice(ti, 0, from);
+    touch({
+      ...content,
+      templateConfig: { ...content.templateConfig, sectionOrder: next },
+    });
+  };
+
+  const resetSectionOrder = () => {
+    const def = DEFAULT_TEMPLATE_CONFIGS[resolvedConfig.templateId];
+    if (!def) return;
+    touch({
+      ...content,
+      templateConfig: { ...content.templateConfig, sectionOrder: def.sectionOrder },
+    });
+    setRevealed([]);
+  };
 
   const markDirty = () => {
     revision.current += 1;
@@ -1309,7 +1418,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {tab === "form" ? (
-            <div className="space-y-5 pb-12">
+            <div className="space-y-3 pb-12">
               {resume.customLatex && (
                 <div className="flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <span className="flex items-center gap-1.5">
@@ -1337,17 +1446,54 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
               </Section>
 
               {/* Dynamic sections ordered by active template configuration */}
-              {resolvedConfig.sectionOrder.map((secId) => {
+              {visibleSections.map((secId) => {
+                const dragProps = {
+                  dragHandle: (
+                    <span
+                      draggable
+                      onDragStart={(e) => {
+                        setDragSection(secId);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", secId);
+                      }}
+                      onDragEnd={() => {
+                        setDragSection(null);
+                        setDropSection(null);
+                      }}
+                      className={`cursor-grab touch-none transition-colors ${
+                        dragSection === secId
+                          ? "text-foreground"
+                          : "text-muted-foreground/50 hover:text-foreground"
+                      }`}
+                      title="Drag to reorder section"
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </span>
+                  ),
+                  dropActive: dropSection === secId && dragSection !== secId,
+                  onDragOver: (e: React.DragEvent) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dropSection !== secId) setDropSection(secId);
+                  },
+                  onDrop: (e: React.DragEvent) => {
+                    e.preventDefault();
+                    if (dragSection) moveSection(dragSection, secId);
+                    setDragSection(null);
+                    setDropSection(null);
+                  },
+                };
+
                 if (secId === "summary") {
                   return (
-                    <Section key="summary" title="Professional summary" icon={<Sparkles className="h-3.5 w-3.5" />} onSave={() => void save()} saving={saving}>
+                    <Section key="summary" title="Professional summary" icon={<Sparkles className="h-3.5 w-3.5" />} onSave={() => void save()} saving={saving} {...dragProps}>
                       <Area label="Summary" rows={4} value={content.summary} onChange={(v) => touch({ ...content, summary: v })} placeholder="Results-driven engineer…" />
                     </Section>
                   );
                 }
                 if (secId === "experience") {
                   return (
-                    <Section key="experience" title="Work Experience" icon={<Briefcase className="h-3.5 w-3.5" />} count={content.experience.length} onSave={() => void save()} saving={saving}>
+                    <Section key="experience" title="Work Experience" icon={<Briefcase className="h-3.5 w-3.5" />} count={content.experience.length} onSave={() => void save()} saving={saving} {...dragProps}>
                       <Entries
                         items={content.experience}
                         onChange={(experience) => touch({ ...content, experience })}
@@ -1374,7 +1520,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "projects") {
                   return (
-                    <Section key="projects" title="Projects" icon={<FolderGit2 className="h-3.5 w-3.5" />} count={content.projects.length} onSave={() => void save()} saving={saving}>
+                    <Section key="projects" title="Projects" icon={<FolderGit2 className="h-3.5 w-3.5" />} count={content.projects.length} onSave={() => void save()} saving={saving} {...dragProps}>
                       <Entries
                         items={content.projects}
                         onChange={(projects) => touch({ ...content, projects })}
@@ -1400,7 +1546,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "skills") {
                   return (
-                    <Section key="skills" title="Skills" icon={<Wrench className="h-3.5 w-3.5" />} count={content.skills.length} onSave={() => void save()} saving={saving}>
+                    <Section key="skills" title="Skills" icon={<Wrench className="h-3.5 w-3.5" />} count={content.skills.length} onSave={() => void save()} saving={saving} {...dragProps}>
                       <Entries
                         items={content.skills}
                         onChange={(skills) => touch({ ...content, skills })}
@@ -1419,7 +1565,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "education") {
                   return (
-                    <Section key="education" title="Education" icon={<GraduationCap className="h-3.5 w-3.5" />} count={content.education.length} onSave={() => void save()} saving={saving}>
+                    <Section key="education" title="Education" icon={<GraduationCap className="h-3.5 w-3.5" />} count={content.education.length} onSave={() => void save()} saving={saving} {...dragProps}>
                       <Entries
                         items={content.education}
                         onChange={(education) => touch({ ...content, education })}
@@ -1446,7 +1592,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "achievements") {
                   return (
-                    <Section key="achievements" title="Achievements" icon={<Star className="h-3.5 w-3.5" />} count={(content.achievements ?? []).length} onSave={() => void save()} saving={saving}>
+                    <Section key="achievements" title="Achievements" icon={<Star className="h-3.5 w-3.5" />} count={(content.achievements ?? []).length} onSave={() => void save()} saving={saving} {...dragProps}>
                       <p className="flex items-start gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
                         <Info className="mt-0.5 h-3 w-3 shrink-0" />
                         Competitive ratings, hackathons, open source and research. Quantify the rank — e.g. “Ranked 31 among 1,200+ teams”.
@@ -1469,7 +1615,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "certificates") {
                   return (
-                    <Section key="certificates" title="Certificates" icon={<Award className="h-3.5 w-3.5" />} count={content.certificates.length} onSave={() => void save()} saving={saving}>
+                    <Section key="certificates" title="Certificates" icon={<Award className="h-3.5 w-3.5" />} count={content.certificates.length} onSave={() => void save()} saving={saving} {...dragProps}>
                       <Entries
                         items={content.certificates}
                         onChange={(certificates) => touch({ ...content, certificates })}
@@ -1489,7 +1635,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 if (secId === "extra") {
                   return (
-                    <Section key="extra" title="Extra-curricular" icon={<Star className="h-3.5 w-3.5" />} count={content.extra.length} onSave={() => void save()} saving={saving}>
+                    <Section key="extra" title="Extra-curricular" icon={<Star className="h-3.5 w-3.5" />} count={content.extra.length} onSave={() => void save()} saving={saving} {...dragProps}>
                       <Entries
                         items={content.extra}
                         onChange={(extra) => touch({ ...content, extra })}
@@ -1508,6 +1654,54 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                 }
                 return null;
               })}
+
+              {sectionOrder.join() !== DEFAULT_TEMPLATE_CONFIGS[resolvedConfig.templateId]?.sectionOrder.join() && (
+                <button
+                  type="button"
+                  onClick={resetSectionOrder}
+                  className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-[11px] text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Reset section order
+                </button>
+              )}
+
+              {hiddenSections.length > 0 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setAddMenuOpen((o) => !o)}
+                    className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed py-2.5 text-xs text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add a section
+                    <span className="text-[10px] text-muted-foreground/70">
+                      {hiddenSections.length} empty
+                    </span>
+                  </button>
+                  {addMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setAddMenuOpen(false)} />
+                      <div className="absolute bottom-full left-0 z-50 mb-1.5 w-full animate-in fade-in zoom-in-95 rounded-lg border bg-popover p-1 shadow-lg">
+                        {hiddenSections.map((id) => (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => {
+                              setRevealed((r) => [...r, id]);
+                              setAddMenuOpen(false);
+                            }}
+                            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                          >
+                            <Plus className="h-3 w-3" />
+                            {SECTION_LABELS[id]}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               <Section
                 title="Resume checks"
