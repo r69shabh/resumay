@@ -61,6 +61,8 @@ export default function ShareViewer({
   pdfB64,
   plainText,
   jsonLd,
+  sentTo,
+  sentAt,
 }: {
   title: string;
   slug: string;
@@ -68,6 +70,9 @@ export default function ShareViewer({
   pdfB64: string | null;
   plainText: string | null;
   jsonLd: object | null;
+  // Present only on a frozen snapshot page: who it was sent to and when.
+  sentTo?: string;
+  sentAt?: string;
 }) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [view, setView] = useState<"pdf" | "text">("pdf");
@@ -119,9 +124,15 @@ export default function ShareViewer({
           <div className="hidden h-4 w-px bg-border sm:block" />
           <div className="flex min-w-0 items-center gap-2">
             <h1 className="truncate text-sm font-medium">{title}</h1>
-            <Badge variant="secondary" className="hidden shrink-0 text-xs md:flex">
-              Public
-            </Badge>
+            {sentTo ? (
+              <Badge variant="secondary" className="hidden shrink-0 text-xs md:flex">
+                Sent copy
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="hidden shrink-0 text-xs md:flex">
+                Public
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -159,6 +170,24 @@ export default function ShareViewer({
         </div>
       </header>
 
+      {/* Frozen sent copy: make it obvious this is a fixed record, not a live doc */}
+      {sentTo && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/40 px-4 py-2 text-xs text-muted-foreground">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Frozen copy sent to{" "}
+            <span className="font-medium text-foreground">{sentTo}</span>
+            {sentAt && (
+              <>
+                {" "}
+                on {new Date(sentAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+              </>
+            )}
+            . This version never changes.
+          </span>
+        </div>
+      )}
+
       {/* Body */}
       <div className="min-h-0 flex-1">
         {jsonLd && (
@@ -181,7 +210,7 @@ export default function ShareViewer({
                     {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                     {copied ? "Copied" : "Copy"}
                   </Button>
-                  <a href={`/r/${slug}/text`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
+                  <a href={`${sentTo ? "/s" : "/r"}/${slug}/text`} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors">
                       Raw text
                       <ExternalLink className="h-3 w-3" />
                     </a>

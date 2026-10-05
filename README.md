@@ -26,10 +26,10 @@
 ## 🆕 What's New
 
 **Resume quality, not just a pretty PDF**
-- **Resume Checks** — universal scoring across 20+ rules: one-page fit (adjusted per template), outcomes over duties, quantified impact, no dead links, no skill ratings, varied bullet openers.
+- **Resume Checks** — formatting and completeness rules: one-page fit (adjusted per template), outcomes over duties, quantified impact, no dead links, no skill ratings, varied bullet openers, and no leftover sample data. This is a formatting score, not a hiring score.
 - **One-page fit assistant** — live page count, four density levels (`Roomy · Standard · Compact · Tight`), one-click tighten that steps down until you fit, and a nudge toward the section to trim when spacing isn't enough.
 - **Plain-English LaTeX errors** — type `\fooBar` and get *"Unknown command \fooBar, line 3 — usually a typo, or a package that isn't loaded"*, with the raw log underneath. Covers unescaped `&`, mismatched braces and empty lists too.
-- **Job-description match** — paste a posting into the ATS tab for a keyword-coverage score and the terms you're missing, ranked by frequency.
+- **Keyword gaps** — paste a posting into the ATS tab to see which of its words your resume never uses, ranked by frequency. It's plain word overlap, not a judgement about your experience.
 - **Auto-bolded metrics** — `35%`, `240ms`, `10K+`, `1.2M` and `12x` are bolded automatically; wrap anything else in `**bold**`.
 
 **Editor**
@@ -51,16 +51,18 @@
 
 Most resume builders either generate non-standard multi-column PDFs that break ATS parsers or force you to debug cryptic LaTeX syntax errors in local terminal toolchains. **resumay** combines the best of both worlds:
 
-- 🎯 **100% ATS-Safe Output**: Disciplined, single-column typography with clean linear text extraction. No tables, multi-column hacks, or graphic overlays that confuse recruiter parsers.
+- 🎯 **Parser-Friendly by Construction**: Disciplined, single-column typography with clean linear text extraction — no tables, multi-column hacks, or graphic overlays. We verify the text extracts in one readable stream; we don't claim any particular ATS outcome.
 - ⚡ **Real Tectonic LaTeX Compiler**: Compiles authentic `.tex` files on the server using the modern Rust-based Tectonic engine — producing pixel-perfect vector PDFs.
 - 📝 **Form-First Editor**: Structured forms for personal info, experience, education, projects, achievements and skills, with automatic LaTeX escaping.
 - 👁️ **Live Side-by-Side PDF Preview**: See your exact compiled PDF update in real time as you edit.
 - 🔍 **ATS Text Inspector**: Switch to the **ATS** tab to see the exact text stream applicant tracking systems read.
 - 🎨 **Layouts That Differ For Real**: Twelve templates — *Software Engineer*, *Full-Stack*, *AI & Machine Learning*, *Product Manager*, *Investment Banking*, *Management Consultant*, *Product Design*, *Research & Academia*, *Student & Entry*, *Campus Placement*, *Compact Minimalist*, *Blank Canvas* — each with its own accent, rules, spacing and section names.
-- 🔗 **Instant Public Share Links**: Every resume gets a public link (`/r/[slug]`) with social preview cards, plain text, PDF and `.tex` downloads.
-- 📤 **Export Anywhere**: PDF, `.tex`, `.json` (your resume as structured data) and clean ATS text. Downloads are named after your resume title.
+- 🔒 **Private Until You Publish**: Resumes are private by default. Publish explicitly to activate the `/r/[slug]` link, revoke it whenever, or rotate the URL to kill a link you already sent. The slug exists from creation but 404s until published.
+- 🧊 **Frozen "Sent" Copies**: Mark a version as sent to a company/role and it gets its own permanent `/s/[slug]` link. Editing the parent never changes it, so what a recruiter is reading can't shift under you.
+- 🧩 **Role Versions**: Fork a resume per application — the copy is named after its parent and the role, not "Untitled resume".
+- 📤 **Export Anywhere**: PDF (one click beside Save), `.tex`, `.json` (your resume as structured data) and clean ATS text. Downloads are named after your resume title.
+- 🚨 **Sample-Data Guard**: Templates ship with example identities. We detect them, badge the editor, and warn before export or publish — a placeholder resume can pass every formatting rule and still be the wrong document to send.
 - 💻 **Raw LaTeX Escape Hatch**: Opt in from pane settings whenever you want full control of the underlying code.
-- 🖼️ **Rotating Public Domain Pastel Art Login**: Google SSO and rotating museum pastel masterpieces (Degas, Redon, Manet, Liotard).
 - 🌓 **Dark & Light Mode**: Zinc-monochrome Shadcn UI aesthetic designed for clarity and focus.
 
 ---

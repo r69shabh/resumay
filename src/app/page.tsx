@@ -32,6 +32,8 @@ import {
   Sparkles,
   Layout,
   MessageSquare,
+  Globe,
+  Lock,
 } from "lucide-react";
 import {
   RESUME_TEMPLATES,
@@ -51,6 +53,7 @@ type Resume = {
   roleTag: string;
   updatedAt: string;
   content?: unknown;
+  isPublic?: boolean;
 };
 
 // ─── Template Paper Preview ───────────────────────────────────────────────────
@@ -392,7 +395,7 @@ function HomeInner() {
     router.refresh();
   };
 
-  const create = async (forkFrom?: string) => {
+  const create = async (forkFrom?: string, roleVersion?: string) => {
     setCreating(true);
     try {
       const res = await fetch("/api/resumes", {
@@ -401,6 +404,7 @@ function HomeInner() {
         body: JSON.stringify({
           title: "Untitled resume",
           forkFrom,
+          roleVersion,
         }),
       });
       const r: Resume = await res.json();
@@ -409,6 +413,24 @@ function HomeInner() {
       toast("Failed to create resume");
       setCreating(false);
     }
+  };
+
+  // A fork is an application to a specific role, not a backup copy. Ask what
+  // it's for so the new resume is named after its parent instead of becoming
+  // another "Untitled resume".
+  const createRoleVersion = (r: Resume) => {
+    const suggested = r.roleTag.split(",")[0]?.trim() || "";
+    const label = window.prompt(
+      `Create a version of “${r.title || "Untitled resume"}”.\n\nWhat role is this for? It becomes the new name, so you can tell your applications apart.`,
+      suggested,
+    );
+    if (label === null) return;
+    const trimmed = label.trim();
+    if (!trimmed) {
+      toast("Give the version a name, or cancel");
+      return;
+    }
+    void create(r.id, trimmed);
   };
 
   const createFromTemplate = async (template: ResumeTemplate) => {
@@ -435,6 +457,29 @@ function HomeInner() {
       setCreating(false);
     }
   };
+
+  // "Try a sample" from the landing page: after sign-in, seed the SWE template
+  // so the first thing they see is a real document to edit, not an empty form.
+  // Consuming the sessionStorage flag is the one-shot guard, so no ref (and no
+  // extra render) is needed to stop it running twice.
+  useEffect(() => {
+    if (!user || resumes === null) return;
+    let intent = "";
+    try {
+      intent = sessionStorage.getItem("resumay:trySample") || "";
+    } catch {}
+    const wanted = new URLSearchParams(window.location.search).get("sample") === "1";
+    if (!intent && !wanted) return;
+    try {
+      sessionStorage.removeItem("resumay:trySample");
+    } catch {}
+    // Already has content: don't pile a duplicate sample onto their account.
+    if (resumes.length > 0) return;
+    // Deferred: createFromTemplate flips `creating` synchronously, and this
+    // effect must not set state in its own body.
+    void Promise.resolve().then(() => createFromTemplate(RESUME_TEMPLATES[0]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, resumes]);
 
   const confirmDelete = async (id: string) => {
     try {
@@ -658,6 +703,24 @@ function HomeInner() {
                                 day: "numeric",
                               })}
                             </span>
+
+                            {/* Visibility at a glance: a lock means nobody but you
+                                can open the link. */}
+                            <span
+                              className="inline-flex items-center gap-1 rounded-md border border-dashed px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                              title={
+                                r.isPublic
+                                  ? "Published — anyone with the link can view it"
+                                  : "Private — no public link"
+                              }
+                            >
+                              {r.isPublic ? (
+                                <Globe className="h-2.5 w-2.5 shrink-0" />
+                              ) : (
+                                <Lock className="h-2.5 w-2.5 shrink-0" />
+                              )}
+                              <span>{r.isPublic ? "Public" : "Private"}</span>
+                            </span>
                           </div>
                         </div>
 
@@ -710,12 +773,12 @@ function HomeInner() {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setOpenMenuId(null);
-                                    void create(r.id);
+                                    createRoleVersion(r);
                                   }}
                                   className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer text-left"
                                 >
                                   <Copy className="h-3.5 w-3.5" />
-                                  <span>Duplicate</span>
+                                  <span>Create role version</span>
                                 </button>
 
                                 <div className="my-1 h-px bg-border" />
@@ -879,7 +942,9 @@ function HomeInner() {
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Share resume</h3>
                   <p className="text-xs text-muted-foreground">
-                    Public link for &ldquo;{shareModalResume.title || "Untitled resume"}&rdquo;
+                    {shareModalResume.isPublic
+                      ? `Public link for “${shareModalResume.title || "Untitled resume"}”`
+                      : `“${shareModalResume.title || "Untitled resume"}” is private`}
                   </p>
                 </div>
               </div>
@@ -893,50 +958,77 @@ function HomeInner() {
               </Button>
             </div>
 
-            <div className="mt-4 flex gap-2">
-              <Input
-                readOnly
-                value={`${typeof window !== "undefined" ? window.location.origin : ""}/r/${shareModalResume.slug}`}
-                onFocus={(e) => e.target.select()}
-                className="h-9 font-mono text-xs"
-              />
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() =>
-                  void copyModalLink(
-                    `${typeof window !== "undefined" ? window.location.origin : ""}/r/${shareModalResume.slug}`
-                  )
-                }
-                className="h-9 shrink-0 gap-1.5"
-              >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-                <span>{copied ? "Copied" : "Copy"}</span>
-              </Button>
-            </div>
+            {shareModalResume.isPublic ? (
+              <>
+                <div className="mt-4 flex gap-2">
+                  <Input
+                    readOnly
+                    value={`${typeof window !== "undefined" ? window.location.origin : ""}/r/${shareModalResume.slug}`}
+                    onFocus={(e) => e.target.select()}
+                    className="h-9 font-mono text-xs"
+                  />
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() =>
+                      void copyModalLink(
+                        `${typeof window !== "undefined" ? window.location.origin : ""}/r/${shareModalResume.slug}`
+                      )
+                    }
+                    className="h-9 shrink-0 gap-1.5"
+                  >
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                    <span>{copied ? "Copied" : "Copy"}</span>
+                  </Button>
+                </div>
 
-            <div className="mt-5 flex items-center justify-between border-t pt-4">
-              <Link
-                href={`/r/${shareModalResume.slug}`}
-                target="_blank"
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                <span>Open public page</span>
-              </Link>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  Anyone with this link sees your latest edits. Already sent it to someone?
+                  Freeze a copy from the editor so the link can&apos;t change under them.
+                </p>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShareModalResume(null)}
-              >
-                Done
-              </Button>
-            </div>
+                <div className="mt-5 flex items-center justify-between border-t pt-4">
+                  <Link
+                    href={`/r/${shareModalResume.slug}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Open public page</span>
+                  </Link>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShareModalResume(null)}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-4">
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  This resume has no public link yet. Publishing is deliberate &mdash; open
+                  the editor and choose Publish when you&apos;re ready to share it.
+                </p>
+                <div className="mt-4 flex items-center justify-between border-t pt-4">
+                  <span className="text-xs text-muted-foreground">
+                    Not published
+                  </span>
+                  <Link href={`/edit/${shareModalResume.id}`}>
+                    <Button variant="default" size="sm" className="gap-1.5">
+                      <Globe className="h-3.5 w-3.5" />
+                      Open editor
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

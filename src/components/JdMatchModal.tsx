@@ -29,10 +29,10 @@ export default function JdMatchModal({
           <div>
             <h2 className="flex items-center gap-1.5 text-sm font-semibold">
               <Target className="h-3.5 w-3.5" />
-              Job-description match
+              Keyword gaps
             </h2>
             <p className="text-xs text-muted-foreground">
-              Keywords in the posting missing from your resume
+              Words in the posting that your resume never uses
             </p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
@@ -59,7 +59,7 @@ export default function JdMatchModal({
         {result && (
           <div className="mt-4 border-t pt-4">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Keyword coverage</span>
+              <span className="text-muted-foreground">Keywords you already use</span>
               <span className="font-semibold">
                 {Math.round(result.coverage * 100)}%
               </span>
@@ -87,15 +87,20 @@ export default function JdMatchModal({
                   ))}
                 </div>
                 <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-                  Add these where truthful — preferably inside experience bullets
-                  with numbers. Single words only, not phrases.
+                  This is plain word overlap &mdash; it counts whether the word appears
+                  anywhere, not whether you did the work. Add these where they are true,
+                  ideally inside experience bullets with numbers.
                 </p>
               </>
             ) : (
               <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-400">
-                No gaps found — your resume covers the posting&apos;s distinctive keywords.
+                No gaps found — your resume uses the posting&apos;s distinctive words.
               </p>
             )}
+            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground/80">
+              Single words only, no phrases or synonyms. A keyword present in a job
+              description is not a request from the employer, and stuffing is a bad idea.
+            </p>
           </div>
         )}
       </div>

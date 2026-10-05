@@ -1,27 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ResumayLogo } from "@/components/ResumayLogo";
 import { Button } from "@/components/ui/button";
+import SampleResumePreview from "@/components/SampleResumePreview";
 import { Check, Sun, Moon } from "lucide-react";
 
 interface LoginScreenProps {
   signInGoogle: () => void;
 }
-
-// 10 authentic public domain pastel masterpieces (The Metropolitan Museum of Art Open Access)
-const PASTEL_ARTWORKS = [
-  { id: 1, src: "/art/pastel-1.jpg", title: "Bouquet of Flowers", artist: "Odilon Redon", date: "ca. 1900–1905" },
-  { id: 2, src: "/art/pastel-2.jpg", title: "The Singer in Green", artist: "Edgar Degas", date: "ca. 1884" },
-  { id: 3, src: "/art/pastel-3.jpg", title: "The Bouquet of Violets", artist: "Eva Gonzalès", date: "ca. 1882" },
-  { id: 4, src: "/art/pastel-4.jpg", title: "The Dance Lesson", artist: "Edgar Degas", date: "ca. 1879" },
-  { id: 5, src: "/art/pastel-5.jpg", title: "Valtesse de la Bigne", artist: "Edouard Manet", date: "1879" },
-  { id: 6, src: "/art/pastel-6.jpg", title: "Race Horses", artist: "Edgar Degas", date: "ca. 1885–88" },
-  { id: 7, src: "/art/pastel-7.jpg", title: "Masquerade Portrait", artist: "Rosalba Carriera", date: "1730–31" },
-  { id: 8, src: "/art/pastel-8.jpg", title: "At the Milliner's", artist: "Edgar Degas", date: "1882" },
-  { id: 9, src: "/art/pastel-9.jpg", title: "Woman in Turkish Dress", artist: "Jean Etienne Liotard", date: "ca. 1748–52" },
-  { id: 10, src: "/art/pastel-10.jpg", title: "Madame Arthur Fontaine", artist: "Odilon Redon", date: "1901" },
-];
 
 function GoogleIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -101,42 +88,25 @@ export function AuthLoadingScreen() {
 }
 
 export function LoginScreen({ signInGoogle }: LoginScreenProps) {
-  // Rotates public domain pastel art on every refresh
-  const [artIndex, setArtIndex] = useState(0);
   // Single-flight OAuth: a second tap starts a competing flow whose callback
   // state overwrites the first, bouncing the user back to Google.
   const [redirecting, setRedirecting] = useState(false);
 
-  useEffect(() => {
-    const rand = Math.floor(Math.random() * PASTEL_ARTWORKS.length);
-    setArtIndex(rand);
-  }, []);
-
-  const currentArt = PASTEL_ARTWORKS[artIndex] || PASTEL_ARTWORKS[0];
-
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background text-foreground overflow-x-hidden">
-      {/* ── 2/3 VISUAL BLOCK: Authentic Public Domain Pastel Masterpiece ── */}
-      <div className="relative w-full lg:w-2/3 h-96 sm:h-[480px] lg:h-screen min-h-[440px] lg:min-h-screen overflow-hidden flex flex-col justify-end p-8 sm:p-12 lg:p-16 select-none shrink-0 bg-neutral-950">
-        {/* Full Bleed Museum Pastel Artwork */}
-        <img
-          src={currentArt.src}
-          alt={`${currentArt.title} by ${currentArt.artist}`}
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-500"
-        />
-
-        {/* Gentle atmospheric shadow gradient concentrated only at the bottom for typography clarity */}
-        <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/85 via-black/40 to-transparent pointer-events-none" />
-
-        {/* The Thought / Quote: Positioned at bottom, clean sans font, subtle shadow */}
-        <div className="relative z-20 max-w-2xl space-y-3">
-          <blockquote className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-white leading-snug drop-shadow-md">
-            “Resume creation is an art of seeking job.”
-          </blockquote>
-
-          <p className="text-sm font-medium text-white/90 drop-shadow-sm">
-            r69shabh, 2026
+      {/* ── 2/3 SAMPLE BLOCK: the actual product output, not decoration ── */}
+      <div className="relative w-full lg:w-2/3 h-96 sm:h-[480px] lg:h-screen min-h-[440px] lg:min-h-screen overflow-hidden flex flex-col justify-center p-6 sm:p-10 lg:p-14 select-none shrink-0 bg-muted/30">
+        <div className="mx-auto w-full max-w-2xl">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            A real resume, compiled by the same engine you&rsquo;ll use
           </p>
+          <SampleResumePreview className="mx-auto mt-3 aspect-[8.5/11] w-full max-w-[380px]" />
+
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-foreground">
+            <span className="rounded-full border px-2.5 py-1">Edit normally</span>
+            <span className="rounded-full border px-2.5 py-1">See the exact PDF</span>
+            <span className="rounded-full border px-2.5 py-1">Export free</span>
+          </div>
         </div>
       </div>
 
@@ -166,6 +136,11 @@ export function LoginScreen({ signInGoogle }: LoginScreenProps) {
               onClick={() => {
                 if (redirecting) return;
                 setRedirecting(true);
+                // Remember the intent across the OAuth round trip so the
+                // dashboard can drop the user straight into the sample.
+                try {
+                  sessionStorage.setItem("resumay:trySample", "1");
+                } catch {}
                 signInGoogle();
               }}
               disabled={redirecting}
@@ -177,21 +152,26 @@ export function LoginScreen({ signInGoogle }: LoginScreenProps) {
             <p className="text-[11px] text-center text-muted-foreground">
               Instant access • No password or credit card required
             </p>
+            <p className="text-center text-[11px] text-muted-foreground">
+              Just looking? The sample on the left is the real compiled PDF — no account needed.
+            </p>
           </div>
 
-          {/* Value Highlights */}
+          {/* Value Highlights — what we actually verified, not a hiring promise */}
           <div className="pt-6 border-t border-border/60 space-y-3">
             <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
               <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>100% ATS-safe standard single-column structure</span>
+              <span>Edit plain forms, watch the real PDF update as you type</span>
             </div>
             <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
               <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>Live side-by-side PDF preview via Tectonic engine</span>
+              <span>
+                Text extracts cleanly from the PDF in one column &mdash; check it yourself in the ATS tab
+              </span>
             </div>
             <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
               <Check className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-              <span>Instant public share links & clean raw text copy</span>
+              <span>Share links are private until you publish, and sent copies freeze</span>
             </div>
           </div>
         </div>

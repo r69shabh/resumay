@@ -27,7 +27,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     category: "engineering",
     roleTag: "SWE",
     badge: "Most Popular",
-    traits: ["1 page", "Classic serif", "ATS-safe"],
+    traits: ["1 page", "Classic serif", "Single column"],
     description: "Battle-tested Silicon Valley engineering standard with centered header and experience-first flow.",
     highlights: ["Experience First", "Classic Serif", "Centered Header", "Quantified Metrics"],
     layoutInfo: {

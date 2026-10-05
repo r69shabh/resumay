@@ -36,6 +36,7 @@ import {
   type ResumeSectionId,
 } from "@/lib/resume";
 import { lintResume, type LintIssue, type LintReport } from "@/lib/resume-lint";
+import { preflightExport, findSeedData } from "@/lib/example-data";
 import { RESUME_TEMPLATES } from "@/lib/templates-data";
 import { downloadFileName } from "@/lib/utils";
 import JdMatchModal from "@/components/JdMatchModal";
@@ -45,6 +46,7 @@ import {
   Share2,
   Code2,
   Eye,
+  EyeOff,
   FileCheck,
   Check,
   Copy,
@@ -87,6 +89,7 @@ type Resume = {
   latexSource: string;
   content: unknown;
   customLatex: boolean;
+  isPublic: boolean;
 };
 
 // ─── Small form helpers ────────────────────────────────────────────────────────
@@ -410,20 +413,29 @@ function ResumeChecks({ report }: { report: LintReport }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2.5">
-        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-background ${tone.ring} ${tone.text}`}>
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-background ${tone.ring} ${tone.text}`}
+          title="How many formatting rules this document passes. Not a hiring score."
+        >
           <span className="text-sm font-semibold tabular-nums">{report.score}</span>
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-foreground">
             {report.issues.length === 0
-              ? "All checks passed"
-              : `${report.passed} of ${report.total} checks passed`}
+              ? "All formatting checks passed"
+              : `${report.passed} of ${report.total} formatting checks passed`}
           </p>
           <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
             <div className={`h-full rounded-full ${tone.bg}`} style={{ width: `${report.score}%` }} />
           </div>
         </div>
       </div>
+
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        These are formatting and completeness rules we can check ourselves &mdash; dates,
+        quantified bullets, contact details, leftover sample data. They say nothing about
+        how good the work is or how you compare to other applicants.
+      </p>
 
       {report.issues.length > 0 && (
         <ul className="space-y-px overflow-hidden rounded-lg border">
@@ -671,7 +683,7 @@ function AtsBody({
         <div className="flex items-center gap-1.5">
           <Button variant="outline" size="sm" onClick={() => setJdOpen(true)}>
             <Target className="h-3 w-3" />
-            JD match
+            Keyword gaps
           </Button>
           <Button variant="outline" size="sm" onClick={() => void copy()} disabled={!result.text}>
             {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -718,26 +730,255 @@ function AtsPanel({ id, stale, resumeText }: { id: string; stale: boolean; resum
   );
 }
 
+// ─── Sent snapshots list ───────────────────────────────────────────────────────
+
+type SentSnapshot = {
+  id: string;
+  slug: string;
+  title: string;
+  company: string;
+  role: string;
+  createdAt: string;
+};
+
+function snapshotLabel(s: SentSnapshot) {
+  if (s.company && s.role) return `${s.company} — ${s.role}`;
+  return s.company || s.role || "Sent copy";
+}
+
+function SentCopies({ resumeId, onClose }: { resumeId: string; onClose: () => void }) {
+  const [snaps, setSnaps] = useState<SentSnapshot[] | null>(null);
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    try {
+      const r = await fetch(`/api/resumes/${resumeId}/snapshots`);
+      setSnaps(r.ok ? ((await r.json()) as SentSnapshot[]) : []);
+    } catch {
+      setSnaps([]);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeId]);
+
+  const freeze = async () => {
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/resumes/${resumeId}/snapshots`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company, role }),
+      });
+      if (!r.ok) throw new Error();
+      setCompany("");
+      setRole("");
+      await load();
+      toast("Frozen copy created");
+    } catch {
+      toast("Could not create the copy");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revoke = async (id: string) => {
+    try {
+      const r = await fetch(`/api/resumes/${resumeId}/snapshots`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!r.ok) throw new Error();
+      await load();
+      toast("Copy revoked — its link no longer works");
+    } catch {
+      toast("Could not revoke");
+    }
+  };
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-lg border bg-card p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold">Sent copies</h2>
+            <p className="text-xs text-muted-foreground">
+              A frozen copy never changes, even if you keep editing.
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="mt-4 rounded-md border bg-muted/30 p-3">
+          <p className="text-xs font-medium">Freeze the current version</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Use this when you apply. It gets its own permanent link that will not change
+            if you edit this resume later.
+          </p>
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
+            <Input
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              placeholder="Company"
+              className="h-9 text-xs"
+            />
+            <Input
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              placeholder="Role"
+              className="h-9 text-xs"
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => void freeze()}
+            disabled={busy}
+            className="mt-2 h-9 w-full gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {busy ? "Freezing…" : "Mark as sent"}
+          </Button>
+        </div>
+
+        <div className="mt-4 max-h-64 overflow-y-auto">
+          {snaps === null ? (
+            <p className="py-4 text-center text-xs text-muted-foreground">Loading…</p>
+          ) : snaps.length === 0 ? (
+            <p className="py-4 text-center text-xs text-muted-foreground">
+              No sent copies yet. When you apply somewhere, mark it as sent and the link
+              you share stays locked to this version.
+            </p>
+          ) : (
+            <ul className="space-y-1.5">
+              {snaps.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between gap-2 rounded-md border bg-card px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">{snapshotLabel(s)}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {new Date(s.createdAt).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Link
+                      href={`/s/${s.slug}`}
+                      target="_blank"
+                      className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] transition-colors hover:bg-accent"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Open
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void revoke(s.id)}
+                      className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive"
+                    >
+                      Revoke
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Share Dialog ──────────────────────────────────────────────────────────────
 
 function ShareDialog({
+  id,
   slug,
   title,
   content,
+  isPublic,
   shareHref,
   pdfUrl,
   onDownloadTex,
+  onPublished,
   onClose,
 }: {
+  id: string;
   slug: string;
   title: string;
   content: ResumeContent;
+  isPublic: boolean;
   shareHref: string;
   pdfUrl: string | null;
   onDownloadTex: () => void;
+  onPublished: (next: { isPublic: boolean; slug: string }) => void;
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [sentOpen, setSentOpen] = useState(false);
+
+  const patch = async (body: { isPublic?: boolean; rotateSlug?: boolean }) => {
+    setBusy(true);
+    try {
+      const r = await fetch(`/api/resumes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error();
+      const updated = (await r.json()) as { isPublic: boolean; slug: string };
+      onPublished({ isPublic: updated.isPublic, slug: updated.slug });
+      return updated;
+    } catch {
+      toast("That didn't work — try again");
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const togglePublish = async () => {
+    const next = !isPublic;
+    // Publishing a document still full of sample data is the one mistake worth
+    // stopping: the link would be public, live, and wrong.
+    if (next) {
+      const { seed } = preflightExport(content);
+      if (seed.length > 0) {
+        const ok = confirm(
+          `This still has sample data in it: ${seed
+            .slice(0, 4)
+            .map((s) => s.value)
+            .join(", ")}.\n\nAnyone with the link will see it. Publish anyway?`,
+        );
+        if (!ok) return;
+      }
+    }
+    const updated = await patch({ isPublic: next });
+    if (updated) toast(next ? "Published — the link is live" : "Unpublished — the link is dead");
+  };
+
+  const rotate = async () => {
+    if (!confirm("Rotate the link? The current URL stops working immediately.")) return;
+    const updated = await patch({ rotateSlug: true });
+    if (updated) toast("Link rotated — the old URL no longer works");
+  };
 
   const copy = async () => {
     try {
@@ -762,26 +1003,95 @@ function ShareDialog({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-semibold">Share resume</h2>
-            <p className="text-xs text-muted-foreground">Publicly accessible via link</p>
+            <p className="text-xs text-muted-foreground">
+              {isPublic
+                ? "Anyone with this link sees your latest edits"
+                : "Private — this link does not work for anyone else"}
+            </p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="mt-4 flex gap-2">
-          <Input readOnly value={shareHref} onFocus={(e) => e.target.select()} className="font-mono text-xs" />
-          <Button variant="outline" onClick={() => void copy()} className="shrink-0">
+        {/* Visibility is an explicit choice, not a side effect of having a slug. */}
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="text-xs font-medium">{isPublic ? "Public link" : "Not published"}</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+              {isPublic
+                ? "Edits show up on this page straight away. Already sent it to someone? Mark a copy as sent instead."
+                : "Publish to make this link viewable. Revoke it whenever you like."}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant={isPublic ? "outline" : "default"}
+            onClick={() => void togglePublish()}
+            disabled={busy}
+            className="h-8 shrink-0 gap-1.5"
+          >
+            {isPublic ? <EyeOff className="h-3.5 w-3.5" /> : <Globe className="h-3.5 w-3.5" />}
+            {isPublic ? "Revoke" : "Publish"}
+          </Button>
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          <Input
+            readOnly
+            value={isPublic ? shareHref : "Publish to get a working link"}
+            onFocus={(e) => e.target.select()}
+            disabled={!isPublic}
+            className="font-mono text-xs"
+          />
+          <Button
+            variant="outline"
+            onClick={() => void copy()}
+            disabled={!isPublic}
+            className="shrink-0"
+          >
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? "Copied" : "Copy"}
           </Button>
         </div>
 
+        <div className="mt-3 flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSentOpen(true)}
+            className="h-8 flex-1 gap-1.5"
+          >
+            <FileCheck className="h-3.5 w-3.5" />
+            Sent copies
+          </Button>
+          {isPublic && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void rotate()}
+              disabled={busy}
+              className="h-8 gap-1.5 text-xs text-muted-foreground"
+              title="Kill this URL and get a new one"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Rotate link
+            </Button>
+          )}
+        </div>
+
         <div className="mt-4 grid grid-cols-2 gap-2 border-t pt-4">
-          <Link href={`/r/${slug}`} target="_blank" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border bg-card px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
-            <ExternalLink className="h-3.5 w-3.5" />
-            Open page
-          </Link>
+          {isPublic ? (
+            <Link href={`/r/${slug}`} target="_blank" className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border bg-card px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open page
+            </Link>
+          ) : (
+            <span className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-dashed px-3 text-sm font-medium text-muted-foreground">
+              <EyeOff className="h-3.5 w-3.5" />
+              Not published
+            </span>
+          )}
           {pdfUrl && (
             <a href={pdfUrl} download={downloadFileName(title, slug, "pdf")} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border bg-card px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors">
               <Download className="h-3.5 w-3.5" />
@@ -830,6 +1140,8 @@ function ShareDialog({
           </Link>
         </div>
       </div>
+
+      {sentOpen && <SentCopies resumeId={id} onClose={() => setSentOpen(false)} />}
     </div>
   );
 }
@@ -1092,6 +1404,9 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
     () => lintResume(content, info?.pages ?? null, templateMeta?.traits),
     [content, info?.pages, templateMeta],
   );
+  // Drives the amber banner: leftover sample data is visible without opening
+  // checks or trying to export.
+  const seedFindings = useMemo(() => findSeedData(content), [content]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1101,7 +1416,7 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
       .then((r: Resume | null) => {
         if (!active) return;
         if (!r) return setSaveMsg("Resume not found.");
-        setResume({ ...r, customLatex: r.customLatex || r.content == null });
+        setResume({ ...r, customLatex: r.customLatex || r.content == null, isPublic: !!r.isPublic });
         setRaw(r.latexSource);
         if (r.content != null) setContent(parseContent(r.content));
         if (r.content == null || r.customLatex) {
@@ -1281,6 +1596,35 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   };
 
+  // The daily action: save and download sit next to each other in the top bar.
+  // Exporting is the point of the app, so it gets a first-class button rather
+  // than being buried two clicks deep inside Share.
+  const exportPdf = () => {
+    if (!resume) return;
+    // One last look at what is actually in the file, not what the score says.
+    // A resume full of "Alex Morgan / (555) 234-5678" can pass every formatting
+    // rule and still be the wrong document to send.
+    const { seed, empty, messages } = preflightExport(content);
+    if (messages.length > 0) {
+      const ok = confirm(
+        `${messages.join("\n")}\n\nDownload it anyway?`,
+      );
+      if (!ok) return;
+    }
+    if (!info?.pdfUrl) {
+      toast("Still compiling — try again in a moment");
+      return;
+    }
+    if (dirty) {
+      toast("Exporting your latest unsaved edits");
+    }
+    const a = document.createElement("a");
+    a.href = info.pdfUrl;
+    a.download = downloadFileName(resume.title, resume.slug, "pdf");
+    a.click();
+    if (seed.length === 0 && empty.length === 0) toast("PDF downloaded");
+  };
+
   if (sessionPending)
     return (
       <main className="flex min-h-screen items-center justify-center p-6 text-center">
@@ -1376,14 +1720,26 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              variant={dirty ? "default" : "outline"}
-              disabled={saving}
+              variant="outline"
               onClick={() => void save()}
+              disabled={saving}
               className="h-9 w-9 shrink-0 gap-1.5 rounded-full p-0 text-xs shadow-xs sm:w-auto sm:px-4"
               title="Save"
             >
               <Save className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">{saving ? "Saving…" : "Save"}</span>
+            </Button>
+
+            {/* Export sits beside Save: downloading the PDF is the daily action,
+                not a submenu of sharing. */}
+            <Button
+              size="sm"
+              onClick={exportPdf}
+              className="h-9 w-9 shrink-0 gap-1.5 rounded-full p-0 text-xs shadow-xs sm:w-auto sm:px-4"
+              title="Download PDF"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Export PDF</span>
             </Button>
 
             <Button
@@ -1404,12 +1760,17 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
 
       {shareOpen && (
         <ShareDialog
+          id={resume.id}
           slug={resume.slug}
           title={resume.title}
           content={content}
+          isPublic={resume.isPublic}
           shareHref={`${typeof window !== "undefined" ? window.location.origin : ""}${sharePath}`}
           pdfUrl={info?.pdfUrl ?? null}
           onDownloadTex={downloadTex}
+          onPublished={(next) =>
+            setResume((prev) => (prev ? { ...prev, isPublic: next.isPublic, slug: next.slug } : prev))
+          }
           onClose={() => setShareOpen(false)}
         />
       )}
@@ -1481,6 +1842,22 @@ function EditInner({ params }: { params: Promise<{ id: string }> }) {
                   >
                     Editor settings
                   </button>
+                </div>
+              )}
+
+              {seedFindings.length > 0 && (
+                <div className="flex items-start gap-2.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">
+                      Still contains sample data
+                    </p>
+                    <p className="mt-0.5 leading-relaxed text-muted-foreground">
+                      {seedFindings.slice(0, 5).map((s) => `${s.field}: “${s.value}”`).join(" · ")}
+                      {seedFindings.length > 5 && ` +${seedFindings.length - 5} more`}. Replace these
+                      with your own — the formatting score ignores them, but a recruiter will not.
+                    </p>
+                  </div>
                 </div>
               )}
 

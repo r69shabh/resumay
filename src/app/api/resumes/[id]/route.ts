@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
 import { parseContent, renderLatex } from "@/lib/resume";
+import { newSlug } from "@/lib/share";
 
 const unauthorized = () => NextResponse.json({ error: "sign in required" }, { status: 401 });
 const missing = () => NextResponse.json({ error: "not found" }, { status: 404 });
@@ -51,6 +52,29 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     data.latexSource = renderLatex(parseContent(prev.content));
     data.customLatex = false;
   }
+  const r = await db.resume.update({ where: { id }, data });
+  return NextResponse.json(r);
+}
+
+// Visibility controls. Kept off PUT so a routine autosave can never
+// accidentally publish, and rotating is always an explicit request.
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const userId = await requireUserId();
+  if (!userId) return unauthorized();
+  const { id } = await params;
+  const body = (await req.json().catch(() => ({}))) as {
+    isPublic?: boolean;
+    rotateSlug?: boolean;
+  };
+  const prev = await db.resume.findFirst({ where: { id, userId } });
+  if (!prev) return missing();
+
+  const data: { isPublic?: boolean; publishedAt?: Date | null; slug?: string } = {};
+  if (body.isPublic !== undefined) {
+    data.isPublic = body.isPublic;
+    data.publishedAt = body.isPublic ? new Date() : null;
+  }
+  if (body.rotateSlug) data.slug = newSlug();
   const r = await db.resume.update({ where: { id }, data });
   return NextResponse.json(r);
 }

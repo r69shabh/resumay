@@ -4,6 +4,7 @@
 // skill ratings) rather than any one hiring style.
 
 import type { ResumeContent } from "./resume";
+import { findSeedData } from "./example-data";
 
 export type LintSeverity = "error" | "warn" | "info";
 
@@ -77,6 +78,25 @@ export function lintResume(
     overBudget
       ? `This layout is designed for ${pageBudget === 2 ? "two" : "one"} page${pageBudget > 1 ? "s" : ""}. ${pageBudget === 2 ? "Move to a one-page layout or tighten the spacing." : "Try a tighter layout, then cut the weakest bullet."}`
       : "Length is within this layout's budget.",
+  );
+
+  // Seeded sample data. Weighted as an error because a resume still carrying
+  // "Alex Morgan / (555) 234-5678 / example.com" is not sendable, however well
+  // it scores on the formatting rules below.
+  const seed = findSeedData(c);
+  check(
+    seed.length === 0,
+    "error",
+    "seed",
+    seed.length
+      ? `Sample data still in ${seed.length} field${seed.length > 1 ? "s" : ""}`
+      : "sample data",
+    seed.length
+      ? `This still has our example values: ${seed
+          .slice(0, 4)
+          .map((s) => `${s.field} "${s.value}"`)
+          .join(", ")}${seed.length > 4 ? ` +${seed.length - 4} more` : ""}. Replace them with your own before sending.`
+      : "No example values left in the document.",
   );
 
   // Contact

@@ -3,9 +3,7 @@ import { db } from "@/lib/db";
 import { requireUserId } from "@/lib/auth";
 import { JAKES_TEMPLATE } from "@/lib/template";
 import { defaultContent, parseContent, renderLatex } from "@/lib/resume";
-
-const slug = () =>
-  Math.random().toString(36).slice(2, 10).padEnd(8, "x");
+import { newSlug } from "@/lib/share";
 
 const unauthorized = () => NextResponse.json({ error: "sign in required" }, { status: 401 });
 
@@ -27,7 +25,9 @@ export async function GET(req: Request) {
   return NextResponse.json(resumes);
 }
 
-// POST /api/resumes {title?, roleTag?, latexSource?, content?, forkFrom?}
+// POST /api/resumes {title?, roleTag?, latexSource?, content?, forkFrom?, roleVersion?}
+// `roleVersion` names the new copy after its parent ("Backend Engineer — Stripe
+// SWE") so a fork reads as a version of something rather than a nameless clone.
 export async function POST(req: Request) {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
@@ -37,16 +37,27 @@ export async function POST(req: Request) {
     latexSource?: string;
     content?: unknown;
     forkFrom?: string;
+    roleVersion?: string;
   };
   let latexSource = body.latexSource;
   let content = body.content !== undefined ? parseContent(body.content) : defaultContent();
   let customLatex = false;
+  let title = body.title?.trim() || "Untitled resume";
+  let roleTag = body.roleTag?.trim() || "";
   if (body.forkFrom) {
     const src = await db.resume.findFirst({ where: { id: body.forkFrom, userId } });
     if (src) {
       latexSource = src.latexSource;
       content = parseContent(src.content);
       customLatex = src.customLatex || src.content == null;
+      const label = body.roleVersion?.trim();
+      if (label) {
+        const parent = src.title?.trim() || "Untitled resume";
+        title = `${parent} — ${label}`;
+      }
+      // A role version is an application to a specific role, so carry the
+      // parent's tags over unless the caller set its own.
+      if (!roleTag) roleTag = src.roleTag;
     }
   }
   if (!latexSource) latexSource = customLatex ? JAKES_TEMPLATE : renderLatex(content);
@@ -54,12 +65,14 @@ export async function POST(req: Request) {
   const contentJson = JSON.parse(JSON.stringify(content)) as object;
   const r = await db.resume.create({
     data: {
-      slug: slug(),
-      title: body.title?.trim() || "Untitled resume",
-      roleTag: body.roleTag?.trim() || "",
+      slug: newSlug(),
+      title,
+      roleTag,
       latexSource,
       content: customLatex ? undefined : contentJson,
       customLatex,
+      // Private until the owner publishes. A fresh resume has no public URL.
+      isPublic: false,
       userId,
     },
   });
