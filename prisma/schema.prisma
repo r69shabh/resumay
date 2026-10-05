@@ -18,9 +18,35 @@ model Resume {
   // Neon Auth user id. Plain scalar — identity lives in Neon's managed
   // neon_auth schema, not in our tables.
   userId      String?
+  // Privacy: a resume is private until its owner explicitly publishes it.
+  // The slug exists from creation but stays 404 until isPublic is set, so a
+  // link can never leak by guessing. Publishing is per-resume, revocable,
+  // and the slug can be rotated to kill a link that was already sent.
+  isPublic    Boolean  @default(false)
+  publishedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@index([userId])
+}
+
+// Frozen "sent" copies. A snapshot is an immutable copy of the resume as it
+// stood when the owner marked it as sent to a company/role, with its own
+// public slug. Editing the parent never changes a snapshot, so a link already
+// handed to a recruiter keeps showing exactly what was sent.
+model Snapshot {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  resumeId    String
+  userId      String?
+  title       String
+  company     String   @default("")
+  role        String   @default("")
+  latexSource String
+  content     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([resumeId])
   @@index([userId])
 }
 
